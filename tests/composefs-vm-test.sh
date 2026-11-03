@@ -10,15 +10,14 @@
 set -euo pipefail
 
 image="${1:?usage: $0 IMAGE}"
-BCVK="${BCVK:-bcvk}"
-BCVK_CONNECTION="${BCVK_CONNECTION:-qemu:///session}"
 PODMAN="${PODMAN:-podman}"
+# shellcheck source=tests/libvirt-vm.sh
+source "$(dirname "$0")/libvirt-vm.sh"
 
 readonly MARKER=/usr/share/atomic-linux-composefs-test
-readonly BOOT_WAIT_SECS=300
 
 run_id=$(< /proc/sys/kernel/random/uuid)
-name="atomic-linux-composefs-${run_id:0:8}"
+VM_NAME="atomic-linux-composefs-${run_id:0:8}"
 # bootc upgrade re-pulls the booted reference, so "current" is retagged to
 # the next build; "other" is the bootc switch target.
 test_repo="localhost/atomic-linux-composefs-test-${run_id:0:8}"
@@ -30,11 +29,11 @@ cleanup() {
 	status=$?
 	rm -rf "${builddir}"
 	if ((status != 0 && ${KEEP_FAILED_VM:-0} == 1)); then
-		printf 'Retaining failed VM %s and its images %s:*\n' "${name}" "${test_repo}" >&2
+		printf 'Retaining failed VM %s and its images %s:*\n' "${VM_NAME}" "${test_repo}" >&2
 		exit "${status}"
 	fi
 	if ((created)); then
-		"${BCVK}" libvirt --connect "${BCVK_CONNECTION}" rm --force "${name}" || status=1
+		"${BCVK}" libvirt --connect "${BCVK_CONNECTION}" rm --force "${VM_NAME}" || status=1
 	fi
 	# By ID: retagging "current" leaves earlier builds untagged.
 	if ((${#built_ids[@]})); then
@@ -44,30 +43,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-vm() {
-	"${BCVK}" libvirt --connect "${BCVK_CONNECTION}" ssh "${name}" "$@"
-}
-
 # Build IMAGE plus a marker file naming the build, tagged as $2.
 derive() {
 	local marker=$1 tag=$2
 	printf 'FROM %s\nRUN echo %s > %s\n' "${image}" "${marker}" "${MARKER}" >"${builddir}/Containerfile"
 	built_ids+=("$("${PODMAN}" build --quiet --tag "${test_repo}:${tag}" "${builddir}")")
-}
-
-# Waits for a new boot ID, so a slow shutdown is not mistaken for the reboot.
-reboot_and_wait() {
-	local old_boot new_boot deadline=$((SECONDS + BOOT_WAIT_SECS))
-	old_boot=$(vm 'cat /proc/sys/kernel/random/boot_id')
-	vm 'systemctl reboot' || true
-	sleep 10
-	until new_boot=$(vm 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null) && [[ "${new_boot}" != "${old_boot}" ]]; do
-		if ((SECONDS > deadline)); then
-			echo "error: ${name} did not come back within ${BOOT_WAIT_SECS}s" >&2
-			return 1
-		fi
-		sleep 5
-	done
 }
 
 expect_marker() {
@@ -87,7 +67,7 @@ derive three other
 # upgrade and switch in the VM see the images built above. Set created
 # first: a failed SSH wait can still leave a defined VM behind.
 created=1
-"${BCVK}" libvirt --connect "${BCVK_CONNECTION}" run --name "${name}" --update-from-host \
+"${BCVK}" libvirt --connect "${BCVK_CONNECTION}" run --name "${VM_NAME}" --update-from-host \
 	--filesystem btrfs --disk-size 20G --memory 4G --cpus 4 --detach --ssh-wait "${test_repo}:current"
 
 # shellcheck disable=SC2016 # expanded by the VM's shell

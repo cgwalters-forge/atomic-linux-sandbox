@@ -124,6 +124,34 @@ Known gaps, as of bootc 1.17.1 (October 2026):
 A derived image inherits the backend. If it changes bootc, it must also
 regenerate the initramfs, which carries bootc's mount code.
 
+## Transient /etc (test variant)
+
+A first step towards a stateless host. `just build-transient-etc` builds
+`atomic-linux:transient-etc` with ostree's `etc.transient` set in
+`/usr/lib/ostree/prepare-root.conf` (and so in a regenerated initramfs): `/etc`
+is an overlay of the image's `/etc` with its upper on a tmpfs, and anything
+written to it is gone after a reboot. It is a test variant on the ostree
+backend only, not for real hosts: it also boots with `audit=1` and an audit
+watch on writes to `/etc`.
+
+```sh
+just build-transient-etc
+just transient-etc-vm-test    # writes output/transient-etc-report.md
+```
+
+`transient-etc-vm-test` installs the build in a disposable libvirt VM
+(`KEEP_FAILED_VM=1` keeps a failed one; `bcvk ephemeral` cannot test this, as
+it boots without `ostree-prepare-root`). It fails only if the VM does not
+boot, `/etc` is not a tmpfs-backed overlay, or a file written to `/etc`
+survives a reboot. It then reaches GDM and uses NetworkManager, firewalld,
+podman, `timedatectl`, `hostnamectl` and k3s, and reports every path in the
+overlay's upper with the program and systemd unit that the audit records name
+as its writer; writes with no record, such as those made in the initramfs
+before the watch is loaded early in `sysinit.target`, are listed as
+unattributed. That report is the
+list of what must move to `/usr` or to declarative configuration before
+`/etc` can be transient by default.
+
 ## Build and test
 
 ```sh
