@@ -54,15 +54,17 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/build/10-build.sh
 
-# Optional: a newer bootc, and the composefs storage backend instead of
-# ostree; see build/15-bootc.sh and the README. The defaults change nothing.
+# Optional: a newer bootc, the composefs storage backend instead of ostree,
+# and a transient /etc; see build/15-bootc.sh and the README. The defaults
+# change nothing.
 ARG BOOTC_SOURCE="fedora"
 ARG STORAGE_BACKEND="ostree"
+ARG ETC_MODE="persistent"
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \
     --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
-    BOOTC_SOURCE="${BOOTC_SOURCE}" STORAGE_BACKEND="${STORAGE_BACKEND}" /ctx/build/15-bootc.sh
+    BOOTC_SOURCE="${BOOTC_SOURCE}" STORAGE_BACKEND="${STORAGE_BACKEND}" ETC_MODE="${ETC_MODE}" /ctx/build/15-bootc.sh
 
 # k3s is a separately pinned release, installed but not enabled; a derived
 # image opts in with `systemctl enable k3s.service`.
