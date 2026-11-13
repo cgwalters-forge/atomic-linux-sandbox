@@ -33,7 +33,7 @@ jobs:
           persist-credentials: false
 
       # As in build.yml: btrfs-backed rootful podman storage, current podman and just.
-      - uses: projectbluefin/actions/bootc-build/setup-runner@460aab74615e911b69d2c1dc86bfb08442b15188 # v1
+      - uses: projectbluefin/actions/bootc-build/setup-runner@d1f65645c53d413462117fe1f05d00b9d9382f89 # v1
         with:
           storage-backend: btrfs
           native-overlay: "true"
