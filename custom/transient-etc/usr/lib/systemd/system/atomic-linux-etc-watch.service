@@ -1,0 +1,17 @@
+# Transient-/etc test variant only: watch /etc before early boot services
+# write to it. audit-rules.service later deletes all rules (-D) and loads
+# etc-watch.rules through its drop-in; this runs before audit.rules adds the
+# -a task,never that file deletes, so it adds only the watch.
+[Unit]
+Description=Audit writes to /etc (transient-/etc test variant)
+DefaultDependencies=no
+ConditionKernelCommandLine=!audit=0
+Before=sysinit.target systemd-sysusers.service systemd-tmpfiles-setup.service systemd-machine-id-commit.service audit-rules.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/auditctl -w /etc -p wa -k atomic-linux-etc
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
