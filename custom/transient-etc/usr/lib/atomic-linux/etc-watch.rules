@@ -1,0 +1,8 @@
+# Transient-/etc test variant only: record writes to /etc for
+# tests/transient-etc-report.py. Fedora's audit.rules ends with
+# -a task,never, which stops syscall records for every process forked after
+# it; continue past a missing rule so the watch is still installed.
+# auditctl requires -R FILE to be the only command-line arguments.
+-c
+-d task,never
+-w /etc -p wa -k atomic-linux-etc
