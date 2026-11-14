@@ -124,6 +124,59 @@ Known gaps, as of bootc 1.17.1 (October 2026):
 A derived image inherits the backend. If it changes bootc, it must also
 regenerate the initramfs, which carries bootc's mount code.
 
+## Transient /etc (test variant, opt-in)
+
+`just build-transient-etc` builds `atomic-linux:transient-etc` with ostree's
+`etc.transient`: `/etc` is an overlay whose upperdir is on tmpfs, reset on
+every boot. `ETC_MODE` defaults to `persistent`; the normal image and stable
+promotion are unchanged. Transient mode refuses `STORAGE_BACKEND=composefs`,
+which does not use ostree's `prepare-root.conf`. The build preserves the
+base configuration, regenerates the initramfs with ostree's dracut module,
+and verifies that its copy of `prepare-root.conf` enables transient mode.
+`bootc container lint --fatal-warnings` remains mandatory.
+
+With bcvk, libvirt and KVM, run `just transient-etc-vm-test`. This installs a
+disposable VM, asserts a tmpfs-backed `/etc`, writes a marker, reboots and
+asserts the marker disappeared. Unlike `bcvk ephemeral`, this actually
+exercises ostree-prepare-root. Only this variant includes the early audit
+watch, `audit=1` and an audit-rules drop-in. It is measurement instrumentation,
+not a security enforcement boundary; the test intentionally changes `/etc`.
+
+The exercised scope is GDM/graphical.target activation (not interactive
+login), NetworkManager connection add/delete, a runtime firewalld port
+change/revert, podman running a small remote image, timezone and hostname
+changes, and enabling k3s through its existing preflight then running
+`k3s-validate`. Each service step is bounded; failures remain visible findings.
+The podman image is not pinned, so remote availability/content can affect
+that exercise. No services are migrated in this phase.
+
+`output/transient-etc-report.md` lists audit-observed operations, including
+create-then-delete and rename endpoints absent from the final upperdir,
+separately from the final upperdir inventory. Failed syscalls are attempts,
+not successful writes; even a successful watched syscall can include an
+unmodified operand. Upperdir-only paths, including parent copy-ups, are
+unattributed. Relative dirfd paths remain unresolved, never matched by
+basename. Writers show audit executable/comm/PID; service identity is unknown
+unless recorded in the event, with no PID-reuse or parent-unit guessing.
+The report exposes audit lost/backlog counters, incomplete events and early
+watch state, and describes initramfs, rule-reload and nested-mount gaps.
+It is not a claim of complete coverage. A missing watch, missing audit probe,
+or failed collector fails acceptance rather than producing a passing test.
+
+Diagnostics (install/exercise/collector logs, journal for both boots, raw
+audit log and VM state) are collected best effort before cleanup beside the
+report in `output/transient-etc-report-diagnostics/`, even after failure.
+`KEEP_FAILED_VM=1` retains a failed VM. Reports identify candidates to move
+to `/usr` or declarative configuration before considering a default change.
+
+Validation status: synthetic parser and transport tests do not boot the
+image. No transient VM findings or real boot/report artifact are available
+from this run: KVM and bcvk are unavailable. The required separate,
+non-gating workflow and stale action-pin fixes are still undelivered because
+this run cannot edit `.github/`. Existing ordinary-image and composefs CI
+successes do not validate this variant. Do not infer machine-id or installer
+configuration behavior until an installed transient VM has been measured.
+
 ## Build and test
 
 ```sh

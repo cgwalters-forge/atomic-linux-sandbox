@@ -5,10 +5,12 @@ export PODMAN := env("PODMAN", "podman")
 export BCVK := env("BCVK", "bcvk")
 export BCVK_CONNECTION := env("BCVK_CONNECTION", "qemu:///session")
 
-# Read by build/15-bootc.sh: fedora, updates-testing or copr; ostree or composefs.
+# Read by build/15-bootc.sh: fedora, updates-testing or copr; ostree or
+# composefs; persistent or transient.
 
 export BOOTC_SOURCE := env("BOOTC_SOURCE", "fedora")
 export STORAGE_BACKEND := env("STORAGE_BACKEND", "ostree")
+export ETC_MODE := env("ETC_MODE", "persistent")
 
 # The forge's shared workflow check (cgwalters-forge/actions, lint/README.md):
 # actionlint, zizmor and the runner-label policy. FORGE_ACTIONS is a checkout
@@ -45,6 +47,7 @@ build tag=DEFAULT_TAG:
         --build-arg "UBLUE_IMAGE_TAG={{ tag }}" \
         --build-arg "BOOTC_SOURCE=${BOOTC_SOURCE}" \
         --build-arg "STORAGE_BACKEND=${STORAGE_BACKEND}" \
+        --build-arg "ETC_MODE=${ETC_MODE}" \
         --label "org.opencontainers.image.title=${IMAGE_NAME}" \
         --label "org.opencontainers.image.version=${version}" \
         --label "org.opencontainers.image.description=Generic Fedora Atomic bootc desktop/host base image" \
@@ -63,10 +66,16 @@ build tag=DEFAULT_TAG:
 build-composefs tag="composefs" source="updates-testing":
     BOOTC_SOURCE={{ source }} STORAGE_BACKEND=composefs {{ just_executable() }} --justfile "{{ justfile() }}" build {{ tag }}
 
-# ShellCheck over build scripts, host helpers and tests.
+# Test variant with a transient /etc and an audit watch on it (ostree backend).
+[group('Image')]
+build-transient-etc tag="transient-etc":
+    ETC_MODE=transient {{ just_executable() }} --justfile "{{ justfile() }}" build {{ tag }}
+
+# ShellCheck over build scripts, host helpers and tests, plus audit parser tests.
 [group('Quality')]
 lint:
     shellcheck build/*.sh custom/system/usr/libexec/k3s-* tests/*.sh tests/kubevirt/*.sh
+    python3 -B -m unittest discover -s tests -p 'test_transient_etc*.py'
 
 # Containerfile lint (pulls the hadolint image).
 [group('Quality')]
@@ -132,6 +141,11 @@ k3s-vm-test:
 [group('Virtual Machine')]
 composefs-vm-test tag="composefs":
     tests/composefs-vm-test.sh "{{ local_image }}:{{ tag }}"
+
+# Install a transient-/etc build in a disposable VM; report what writes /etc.
+[group('Virtual Machine')]
+transient-etc-vm-test tag="transient-etc" report="output/transient-etc-report.md":
+    bash tests/transient-etc-vm-test.sh "{{ local_image }}:{{ tag }}" "{{ report }}"
 
 # Remove the k3s test VM.
 [group('Virtual Machine')]

@@ -1,0 +1,4 @@
+# Transient-/etc test variant only (build/15-bootc.sh). audit=1 gives every
+# process an audit context from boot, so daemons started before auditd are
+# attributed too; the backlog holds early records until auditd reads them.
+kargs = ["audit=1", "audit_backlog_limit=8192"]
