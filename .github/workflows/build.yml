@@ -1,6 +1,8 @@
 name: build
 on:
   pull_request:
+  # The merge queue builds and VM-tests the queued result before it lands.
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -254,3 +256,15 @@ jobs:
       # --use-signing-config=false`, since containers/image reads only the
       # legacy .sig tag, and ship policy.json, registries.d and the public
       # keys so a derived image can opt in to enforcement.
+
+  # The one required check: the merge queue and branch rules wait on this,
+  # so adding or renaming a job above needs no ruleset change.
+  ci:
+    if: always()
+    needs: [lint, image, vm]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - run: '[ "$RESULTS" = "success success success" ] || { echo "::error::lint, image, vm: $RESULTS"; exit 1; }'
+        env:
+          RESULTS: ${{ needs.lint.result }} ${{ needs.image.result }} ${{ needs.vm.result }}
