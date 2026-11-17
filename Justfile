@@ -11,10 +11,10 @@ export PODMAN := env("PODMAN", "podman")
 export BCVK := env("BCVK", "bcvk")
 export BCVK_CONNECTION := env("BCVK_CONNECTION", "qemu:///session")
 
-# Read by build/15-bootc.sh: fedora, updates-testing or copr; persistent or
-# transient.
+# Read by build/15-bootc.sh: forge, fedora, updates-testing or copr;
+# persistent or transient.
 
-export BOOTC_SOURCE := env("BOOTC_SOURCE", "fedora")
+export BOOTC_SOURCE := env("BOOTC_SOURCE", "forge")
 export ETC_MODE := env("ETC_MODE", "persistent")
 
 # Optional page counts; empty leaves the kernel's TTM defaults alone.

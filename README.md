@@ -196,13 +196,18 @@ needed. The root is a read-only, fs-verity-checked EROFS image, and `/etc` and
 Building runs rpm-ostree in the builder stage, so `just build` passes
 `--cap-add=all`, `--security-opt=label=disable` and `--device /dev/fuse` to
 `podman build`. composefs needs bootc 1.17 or newer, and the build fails early
-with older bootc. `BOOTC_SOURCE` picks where bootc comes from: `fedora`, the
-default, keeps the build root's Fedora bootc (1.17.1 or newer in Fedora 45);
+with older bootc. `BOOTC_SOURCE` picks where bootc comes from: `forge`, the
+default for now, installs RPMs from a pinned, checksummed prerelease of the
+[cgwalters-forge/bootc](https://github.com/cgwalters-forge/bootc) fork, which
+carries fixes for `bootc install to-existing-root` that are pending upstream
+(#68); `fedora` keeps the build root's Fedora bootc (1.17.1 or newer in
+Fedora 45) and becomes the default again once Fedora ships those fixes;
 `updates-testing` takes Fedora's newest build, and `copr` takes upstream's
 main branch from the `rhcontainerbot/bootc` COPR:
 
 ```sh
-just build                                 # bootc from Fedora
+just build                                 # bootc from the fork's release
+BOOTC_SOURCE=fedora just build             # bootc from Fedora
 BOOTC_SOURCE=copr just build               # bootc from upstream main
 just composefs-vm-test stable              # install, upgrade, switch, rollback
 ```

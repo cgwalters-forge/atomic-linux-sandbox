@@ -58,7 +58,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 
 # The composefs-native setup, optionally with a newer bootc or a transient
 # /etc; see build/15-bootc.sh and the README.
-ARG BOOTC_SOURCE="fedora"
+ARG BOOTC_SOURCE="forge"
 ARG ETC_MODE="persistent"
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache/libdnf5 \

@@ -7,7 +7,10 @@
 # 51bootc dracut module, which mounts the composefs root.
 #
 # BOOTC_SOURCE selects where bootc comes from:
-#   fedora           the base image's bootc, unchanged (the default)
+#   forge            the default: RPMs from a pinned prerelease of the
+#                    cgwalters-forge/bootc fork (BOOTC_FORGE_* below), checked
+#                    against their sha256 before installing
+#   fedora           the base image's bootc, unchanged
 #   updates-testing  the newest Fedora build, from updates-testing
 #   copr             bootc's upstream main branch, from the rhcontainerbot/bootc
 #                    COPR (Packit builds of every merge)
@@ -33,7 +36,20 @@ readonly SETUP_ROOT_CONF=/usr/lib/composefs/setup-root-conf.toml
 # ostree's prepare-root.conf.
 readonly COMPOSEFS_MIN_BOOTC="1.17"
 
-BOOTC_SOURCE="${BOOTC_SOURCE:-fedora}"
+# BOOTC_SOURCE=forge, the default, carries fixes pending upstream for
+# `bootc install to-existing-root` from an ostree host (bootc-dev/bootc#1343,
+# bootc-dev/bootc#404). Switch the default back to fedora once a Fedora bootc
+# release ships them. The fork publishes each commit of its `cgwalters` branch
+# as the immutable prerelease forge-<sha12>, with a SHA256SUMS file whose
+# lines are copied here. Its RPMs are x86_64 builds for Fedora 44; on Fedora 45
+# they also pull in openssl3-libs, the OpenSSL 3 compatibility package.
+readonly BOOTC_FORGE_RELEASE="forge-63c743548946"
+readonly BOOTC_FORGE_URL="https://github.com/cgwalters-forge/bootc/releases/download/${BOOTC_FORGE_RELEASE}"
+readonly BOOTC_FORGE_SHA256SUMS=(
+	"bdf8a6b6bca03825da8bee239e8007faeaf8ef8566f7b79615fa56d657df8acc  bootc-202611172113.g63c7435489-1.fc44.x86_64.rpm"
+)
+
+BOOTC_SOURCE="${BOOTC_SOURCE:-forge}"
 ETC_MODE="${ETC_MODE:-persistent}"
 
 case "${ETC_MODE}" in
@@ -66,6 +82,24 @@ regenerate_initramfs() {
 
 echo "::group:: bootc from ${BOOTC_SOURCE}"
 case "${BOOTC_SOURCE}" in
+forge)
+	if [[ "$(uname -m)" != x86_64 ]]; then
+		echo "error: BOOTC_SOURCE=forge has only x86_64 RPMs; use fedora on $(uname -m)" >&2
+		exit 1
+	fi
+	rpmdir=$(mktemp -d)
+	for entry in "${BOOTC_FORGE_SHA256SUMS[@]}"; do
+		curl -fsSL --retry 5 -o "${rpmdir}/${entry##* }" "${BOOTC_FORGE_URL}/${entry##* }"
+	done
+	printf '%s\n' "${BOOTC_FORGE_SHA256SUMS[@]}" | (cd "${rpmdir}" && sha256sum --check --strict -)
+	# The fork's versions are git snapshots that sort above Fedora's releases.
+	dnf5 -y install "${rpmdir}"/*.rpm
+	rm -rf "${rpmdir}"
+	# dnf5 succeeds without changing anything when a newer build is installed.
+	for entry in "${BOOTC_FORGE_SHA256SUMS[@]}"; do
+		rpm -q "$(basename "${entry##* }" .rpm)" >/dev/null
+	done
+	;;
 fedora) ;;
 updates-testing)
 	dnf5 -y upgrade --enablerepo=updates-testing bootc
@@ -78,14 +112,14 @@ copr)
 	dnf5 -y upgrade --enablerepo="copr:copr.fedorainfracloud.org:${BOOTC_COPR//\//:}" bootc
 	;;
 *)
-	echo "error: unknown BOOTC_SOURCE '${BOOTC_SOURCE}' (expected fedora, updates-testing or copr)" >&2
+	echo "error: unknown BOOTC_SOURCE '${BOOTC_SOURCE}' (expected forge, fedora, updates-testing or copr)" >&2
 	exit 1
 	;;
 esac
 rpm -q bootc
 bootc_version=$(bootc --version | awk '{print $2}')
 if [[ "$(printf '%s\n' "${COMPOSEFS_MIN_BOOTC}" "${bootc_version}" | sort -V | head -n1)" != "${COMPOSEFS_MIN_BOOTC}" ]]; then
-	echo "error: composefs needs bootc ${COMPOSEFS_MIN_BOOTC} or newer, found ${bootc_version}; set BOOTC_SOURCE=updates-testing or copr" >&2
+	echo "error: composefs needs bootc ${COMPOSEFS_MIN_BOOTC} or newer, found ${bootc_version}; set BOOTC_SOURCE=forge, updates-testing or copr" >&2
 	exit 1
 fi
 echo "::endgroup::"
