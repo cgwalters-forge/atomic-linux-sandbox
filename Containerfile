@@ -11,7 +11,7 @@
 # mount it at /ctx.
 
 # OCI context images, pinned by digest (Dependabot proposes bumps).
-FROM ghcr.io/projectbluefin/common:latest@sha256:8d11dd33fe3dfa6c960c0543e6b309a5a2517b7a6fef438647ae53a5f500f7ec AS common
+FROM ghcr.io/projectbluefin/common:latest@sha256:a689d9fd7c26f48bcf883e297bf4490d8f9feaf53a3ed6b61951d6c8170649cc AS common
 FROM ghcr.io/ublue-os/brew:latest@sha256:c201bc801e4828849e8e36c4adcb5c0f38d35ac3ff9546a0ecab0fd2beabf51f AS brew
 
 FROM scratch AS ctx
