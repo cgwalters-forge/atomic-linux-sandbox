@@ -1,0 +1,12 @@
+{
+  "default": [{ "type": "reject" }],
+  "transports": {
+    "docker": {
+      "ghcr.io/cgwalters-forge/atomic-linux": [{
+        "type": "sigstoreSigned",
+        "keyPath": "/usr/share/atomic-linux/keys/cosign.pub",
+        "signedIdentity": { "type": "matchRepository" }
+      }]
+    }
+  }
+}

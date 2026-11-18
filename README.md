@@ -16,7 +16,7 @@ image and keeps finpilot's multi-stage layout and examples. Status: early.
 The image builds and passes `bootc container lint`, and CI boots each
 build of it with `just ephemeral-smoke` and the k3s VM check. The KubeVirt test passed on the
 predecessor image but has not been rerun here, nothing has run on hardware,
-and images are not yet signed.
+and live image-signing acceptance is still pending; see [Image signing](docs/signing.md).
 
 ## What is in the image
 
@@ -161,7 +161,9 @@ RUN bootc container lint --fatal-warnings
 
 Pin the base by digest (take it from the build summary of the commit you
 want, or `skopeo inspect docker://ghcr.io/cgwalters-forge/atomic-linux:stable`)
-and bump it in its own pull request. Configuration hooks:
+and bump it in its own pull request. [Verify the exact base digest before
+`FROM`](docs/signing.md#verify-a-downstream-base-before-from) once signing and
+trust bootstrap are validated. Configuration hooks:
 
 | Hook | For |
 | --- | --- |
@@ -233,8 +235,9 @@ time; the base digest pins the build tools and manifest, not the packages.
 `--enforce-container-sigpolicy` and records the origin as unverified, but
 the image is still pulled through containers/image, which checks
 `/etc/containers/policy.json`. That file is the only signature enforcement:
-a host or derived image that wants signed updates must require them there
-(#46).
+a host or derived image that wants signed updates must require them there.
+See [Image signing](docs/signing.md) for scoped opt-in examples, trust bootstrap
+and the separate trust policy a derived image needs.
 
 Known gaps, as of bootc 1.17.1 (October 2026):
 
@@ -371,8 +374,10 @@ digest as the version label (`45.YYYYMMDD`) and `stable`, after checking
 that its config is the image the VM jobs booted; nothing is rebuilt. A
 failed VM test leaves `stable` where it was, and `promote` skips a build
 that is no longer the head of `main`. The workflow's
-`GITHUB_TOKEN` (`packages: write`) is the only credential, and the job
-summaries print the digest. Dependabot proposes digest bumps for the `FROM`
+`GITHUB_TOKEN` (`packages: write`) authenticates registry pushes, and the job
+summaries print the digest. The pending signing integration uses only the existing
+`COSIGN_PRIVATE_KEY` and `COSIGN_PASSWORD`, restricted to trusted main promotion;
+the build and PR jobs must never receive them. Dependabot proposes digest bumps for the `FROM`
 lines and action pins.
 
 CI builds, tests and publishes only the default desktop variant so far, so
@@ -380,9 +385,10 @@ CI builds, tests and publishes only the default desktop variant so far, so
 published yet; building it in CI, with its own tags and promotion, is still
 to do.
 
-Not yet done: signing. The plan is a cosign key pair, not keyless signing,
-because containers/image (and so bootc) cannot match keyless signatures to a
-workflow identity. See the TODO at the end of the workflow.
+Signing preparation (a pinned cosign helper, candidate public key and inactive
+verification examples) is documented in [docs/signing.md](docs/signing.md).
+Workflow integration remains blocked on per-variant promotion and permission to
+edit the workflow. No live key match or promoted-digest verification is claimed.
 
 ## License
 

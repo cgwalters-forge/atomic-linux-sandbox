@@ -91,6 +91,16 @@ lint:
     python3 -B -m unittest discover -s tests -p 'test_transient_etc*.py'
     python3 -B -m unittest discover -s tests -p 'test_desktop.py'
 
+# Offline signing guards and policy shape; no credentials or registry required.
+[group('Quality')]
+signing-check:
+    node --test tests/signing.test.mjs
+
+# Bounded local registry test; requires linux/amd64, Node, curl, tar and skopeo.
+[group('Quality')]
+signing-test:
+    node tests/signing-integration.mjs
+
 # Containerfile lint (pulls the hadolint image).
 [group('Quality')]
 hadolint:

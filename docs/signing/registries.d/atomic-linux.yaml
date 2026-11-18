@@ -1,0 +1,3 @@
+docker:
+  ghcr.io/cgwalters-forge/atomic-linux:
+    use-sigstore-attachments: true
