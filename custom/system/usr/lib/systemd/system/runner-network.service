@@ -1,0 +1,18 @@
+[Unit]
+Description=Job VM bridge with an egress allowlist
+Documentation=https://github.com/cgwalters-forge/atomic-linux/blob/main/docs/runner-network.md
+# Inert until the host provides a configuration.
+ConditionPathExists=/etc/atomic-linux/runner-network.conf
+After=firewalld.service
+Before=network-pre.target libvirtd.service virtqemud.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/bash /usr/libexec/atomic-linux/runner-network start
+ExecReload=/usr/bin/bash /usr/libexec/atomic-linux/runner-network reload
+ExecStop=/usr/bin/bash /usr/libexec/atomic-linux/runner-network stop
+
+[Install]
+WantedBy=multi-user.target

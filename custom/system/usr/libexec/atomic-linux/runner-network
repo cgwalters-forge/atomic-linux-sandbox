@@ -1,0 +1,168 @@
+#!/usr/bin/bash
+# Job-VM bridge with an egress allowlist; see docs/runner-network.md.
+#
+#   runner-network ruleset [CONFIG]   print the nftables ruleset
+#   runner-network start [CONFIG]     load the ruleset, then create the bridge
+#   runner-network reload [CONFIG]    replace the ruleset only
+#   runner-network stop               remove the bridge, then the ruleset
+#
+# Installed without the executable bit; run it with bash.
+
+set -euo pipefail
+
+DEFAULT_CONFIG=/etc/atomic-linux/runner-network.conf
+BRIDGE=runnerbr0
+TABLE=runner_network
+DEFAULT_ADDRESS=10.231.0.1/24
+# Bound the ruleset: a larger allowlist is a sign of a mistake.
+MAX_ENTRIES=256
+
+fail() {
+	printf 'runner-network: %s\n' "$*" >&2
+	exit 1
+}
+
+octet='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+ipv4="${octet}\.${octet}\.${octet}\.${octet}"
+cidr_re="^${ipv4}(/(3[0-2]|[12]?[0-9]))?$"
+
+address=${DEFAULT_ADDRESS}
+dns=()
+allow=()
+
+# The network of an address/prefix, e.g. 10.231.0.0/24 for 10.231.0.1/24.
+network() {
+	local ip=${1%/*} prefix=${1#*/} a b c d n
+	IFS=. read -r a b c d <<<"${ip}"
+	n=$(((a << 24 | b << 16 | c << 8 | d) & (0xffffffff << (32 - prefix)) & 0xffffffff))
+	printf '%d.%d.%d.%d/%d' $((n >> 24)) $((n >> 16 & 255)) $((n >> 8 & 255)) $((n & 255)) "${prefix}"
+}
+
+# Config lines are `KEY VALUE`; # starts a comment. Keys: address (the
+# bridge's own IPv4/prefix), dns (a resolver job VMs may query on port 53),
+# allow (an IPv4 address or CIDR job VMs may reach on any port).
+read_config() {
+	local file=$1 line key value extra n=0
+	[[ -r "${file}" ]] || fail "cannot read ${file}"
+	while IFS= read -r line || [[ -n "${line}" ]]; do
+		n=$((n + 1))
+		line=${line%%#*}
+		read -r key value extra <<<"${line}" || true
+		[[ -z "${key}" ]] && continue
+		[[ -z "${extra}" && "${value}" =~ ${cidr_re} ]] ||
+			fail "${file}:${n}: expected '${key} <IPv4 address or CIDR>'"
+		case "${key}" in
+		address)
+			[[ "${value}" =~ /(8|9|[12][0-9]|30)$ ]] || fail "${file}:${n}: address needs a prefix length from 8 to 30"
+			[[ "$(network "${value}")" != "${value}" ]] || fail "${file}:${n}: address is the network address"
+			address=${value}
+			;;
+		dns)
+			[[ "${value}" != */* ]] || fail "${file}:${n}: dns takes an address, not a prefix"
+			dns+=("${value}")
+			;;
+		allow)
+			# A typo like 192.168.1.5/16 would open a whole private range.
+			[[ "${value}" != */* || "$(network "${value}")" == "${value}" ]] ||
+				fail "${file}:${n}: ${value} has host bits set; did you mean $(network "${value}") or ${value%/*}?"
+			allow+=("${value}")
+			;;
+		*) fail "${file}:${n}: unknown key '${key}'" ;;
+		esac
+	done <"${file}"
+	((${#dns[@]} > 0)) || fail "${file}: at least one dns resolver is required"
+	((${#dns[@]} + ${#allow[@]} <= MAX_ENTRIES)) || fail "${file}: more than ${MAX_ENTRIES} entries"
+	return 0
+}
+
+join() {
+	local IFS=,
+	printf '%s' "$*"
+}
+
+# Only traffic entering or leaving the bridge is matched, so the host's own
+# traffic is unaffected. firewalld's runner zone accepts the bridge so that
+# this table alone decides; a drop here is final whatever firewalld says.
+ruleset() {
+	local allow_elements='' subnet
+	((${#allow[@]})) && allow_elements="elements = { $(join "${allow[@]}") }"
+	subnet=$(network "${address}")
+	cat <<EOF
+table inet ${TABLE}
+delete table inet ${TABLE}
+table inet ${TABLE} {
+	set dns {
+		type ipv4_addr
+		flags interval
+		auto-merge
+		elements = { $(join "${dns[@]}") }
+	}
+
+	set allow {
+		type ipv4_addr
+		flags interval
+		auto-merge
+		${allow_elements}
+	}
+
+	chain input {
+		type filter hook input priority filter; policy accept;
+		iifname != "${BRIDGE}" accept
+		ct state established,related accept
+		meta nfproto ipv4 ip daddr @dns meta l4proto { tcp, udp } th dport 53 accept
+		counter drop comment "the host's own ports"
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy accept;
+		oifname "${BRIDGE}" iifname != "${BRIDGE}" ct state established,related accept
+		oifname "${BRIDGE}" counter drop comment "no connections to job VMs"
+		iifname != "${BRIDGE}" accept
+		meta nfproto != ipv4 counter drop comment "IPv4 only"
+		ip saddr != ${subnet} counter drop comment "spoofed source"
+		ip daddr @dns meta l4proto { tcp, udp } th dport 53 accept
+		ip daddr @allow accept
+		counter drop comment "not on the allowlist: private, link-local, tailnet and the rest"
+	}
+
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		ip saddr ${subnet} oifname != "${BRIDGE}" masquerade
+	}
+}
+EOF
+}
+
+# The table matches the bridge by name, so loading it first means the bridge
+# is never up unfiltered; nft -f applies all of it or nothing.
+start() {
+	ruleset | nft -f - || fail 'cannot load the ruleset; the bridge was not created'
+	if ! ip link show dev "${BRIDGE}" &>/dev/null; then
+		ip link add name "${BRIDGE}" type bridge
+	fi
+	ip address replace "${address}" dev "${BRIDGE}"
+	ip link set dev "${BRIDGE}" up
+	sysctl -q -w net.ipv4.ip_forward=1
+}
+
+stop() {
+	ip link delete dev "${BRIDGE}" 2>/dev/null || true
+	nft delete table inet "${TABLE}" 2>/dev/null || true
+}
+
+case "${1:-}" in
+ruleset)
+	read_config "${2:-${DEFAULT_CONFIG}}"
+	ruleset
+	;;
+start)
+	read_config "${2:-${DEFAULT_CONFIG}}"
+	start
+	;;
+reload)
+	read_config "${2:-${DEFAULT_CONFIG}}"
+	ruleset | nft -f -
+	;;
+stop) stop ;;
+*) fail "usage: runner-network ruleset|start|reload [CONFIG] | stop" ;;
+esac

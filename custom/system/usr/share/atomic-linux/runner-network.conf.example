@@ -1,0 +1,14 @@
+# Copy to /etc/atomic-linux/runner-network.conf to enable runner-network.service.
+# Lines are `KEY VALUE`, IPv4 only; see docs/runner-network.md.
+# These are documentation addresses: replace them with real ones.
+
+# The bridge's own address and prefix; job VMs use it as their gateway.
+address 10.231.0.1/24
+
+# Resolvers job VMs may query on port 53 (at least one).
+dns 192.0.2.53
+
+# Destinations job VMs may reach on any port: forge, registries and private
+# service endpoints. Everything else, the LAN and tailnet included, is dropped.
+allow 198.51.100.0/24
+allow 203.0.113.10
