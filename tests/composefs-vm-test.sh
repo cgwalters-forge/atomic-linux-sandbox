@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 # Lifecycle check for a composefs-native build (`just build`) in a
-# disposable libvirt VM: install, then upgrade, switch and rollback across
+# disposable libvirt VM: install, then stage, switch and roll back across
 # three derived images, with an /etc and /var edit that must survive.
 #
 # Usage: composefs-vm-test.sh IMAGE (e.g. localhost/atomic-linux:composefs)
@@ -17,7 +17,7 @@ readonly MARKER=/usr/share/atomic-linux-composefs-test
 
 run_id=$(< /proc/sys/kernel/random/uuid)
 VM_NAME="atomic-linux-composefs-${run_id:0:8}"
-# bootc upgrade re-pulls the booted reference, so "current" is retagged to
+# The update service re-pulls the booted reference, so "current" is retagged to
 # the next build; "other" is the bootc switch target.
 test_repo="localhost/atomic-linux-composefs-test-${run_id:0:8}"
 created=0
@@ -68,6 +68,10 @@ vm_install --disk-size 20G --memory 4G --cpus 4 "${test_repo}:current"
 vm 'set -eu
 bootc status --format=json | jq -e ".status.booted.composefs != null and .status.booted.ostree == null" >/dev/null
 test "$(findmnt -no SOURCE /)" = "composefs:$(bootc status --format=json | jq -r .status.booted.composefs.verity)"
+test ! -e /run/ostree-booted
+systemctl is-active bootc-fetch-apply-updates.timer
+# Keep the production schedule from racing the explicit start below.
+systemctl stop bootc-fetch-apply-updates.timer
 test "$(getenforce)" = Enforcing
 systemctl start k3s-preflight.service
 systemctl is-active k3s-preflight.service
@@ -75,10 +79,35 @@ echo local-etc > /etc/atomic-linux-composefs-test
 echo local-var > /var/atomic-linux-composefs-test'
 expect_marker one
 
+boot_id=$(vm 'cat /proc/sys/kernel/random/boot_id')
+booted_verity=$(vm 'bootc status --format=json | jq -er .status.booted.composefs.verity')
 derive two current
-vm 'bootc upgrade'
+staged_digest=$("${PODMAN}" image inspect --format '{{.Digest}}' "${test_repo}:current")
+
+# bcvk writes the host storage setting through tmpfiles, after systemd has
+# read system.conf.d. Reload so the real oneshot can see the retagged image.
+VM_CALL_TIMEOUT="${BOOT_WAIT_SECS}" vm 'set -euo pipefail
+systemctl daemon-reload
+systemctl show-environment | grep -Fx STORAGE_OPTS=additionalimagestore=/run/host-container-storage
+systemctl start bootc-fetch-apply-updates.service'
+
+# A condition skip can return success, so check the staged manifest too.
+if ! vm "bootc status --format=json | jq -e --arg ref '${test_repo}:current' --arg digest '${staged_digest}' --arg verity '${booted_verity}' '
+    .status.booted.composefs.verity == \$verity and
+    .status.booted.image.imageDigest != \$digest and
+    .status.staged.image.image.image == \$ref and
+    .status.staged.image.imageDigest == \$digest
+    ' >/dev/null"; then
+	echo "error: expected ${test_repo}:current (${staged_digest}) staged with deployment ${booted_verity} still booted" >&2
+	vm 'bootc status' >&2 || true
+	exit 1
+fi
+test "$(vm 'cat /proc/sys/kernel/random/boot_id')" = "${boot_id}"
+expect_marker one
+
 reboot_and_wait
 expect_marker two
+vm "bootc status --format=json | jq -e --arg digest '${staged_digest}' '.status.booted.image.imageDigest == \$digest' >/dev/null"
 # shellcheck disable=SC2016 # expanded by the VM's shell
 vm 'set -eu
 test "$(cat /etc/atomic-linux-composefs-test)" = local-etc
