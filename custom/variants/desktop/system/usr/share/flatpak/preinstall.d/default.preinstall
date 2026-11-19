@@ -1,8 +1,98 @@
-# Applied only when the administrator runs flatpak preinstall --system.
+# Installed from Flathub by atomic-linux-flatpak-preinstall.service at boot.
+# A core set like Bluefin's, minus what the desktop already ships as RPMs
+# (Nautilus, Text Editor, Software) and Bluefin's own picks.
 [Flatpak Preinstall org.mozilla.firefox]
 Branch=stable
 CollectionID=org.flathub.Stable
 
 [Flatpak Preinstall org.gnome.Calculator]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Calendar]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Characters]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.clocks]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Connections]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Contacts]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Decibels]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.DejaDup]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.FileRoller]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.font-viewer]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Logs]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Loupe]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Maps]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.NautilusPreviewer]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Papers]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Showtime]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.SimpleScan]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Snapshot]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.Weather]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall org.gnome.baobab]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall com.github.tchx84.Flatseal]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall com.mattjakeman.ExtensionManager]
+Branch=stable
+CollectionID=org.flathub.Stable
+
+[Flatpak Preinstall io.missioncenter.MissionCenter]
 Branch=stable
 CollectionID=org.flathub.Stable

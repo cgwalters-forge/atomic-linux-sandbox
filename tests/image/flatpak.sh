@@ -9,7 +9,9 @@ test ! -e /usr/lib/systemd/system/flatpak-add-fedora-repos.service
 # Do not hide build-time state by deleting it here. Discovery must work with
 # the empty /var that final cleanup leaves, using the shipped drop-ins alone.
 test ! -e /var/lib/flatpak/repo/config
-python3 - <<'PY'
+tmp=$(mktemp -d)
+trap 'rm -rf "${tmp}"' EXIT
+APPS="${tmp}/apps" python3 - <<'PY'
 import base64
 import configparser
 import os
@@ -30,11 +32,12 @@ for directory in (root / "preinstall.d", Path("/etc/flatpak/preinstall.d")):
             if config.getboolean(section, "Install", fallback=True):
                 assert section not in entries, (path, section)
                 entries[section] = dict(config[section])
-expected = {"Flatpak Preinstall " + app for app in
-            ("org.mozilla.firefox", "org.gnome.Calculator")} if desktop else set()
-assert set(entries) == expected, entries
+# The desktop's set is whatever its drop-in lists; the server has none.
+assert bool(entries) == desktop, entries
 for section, entry in entries.items():
     assert entry == {"Branch": "stable", "CollectionID": "org.flathub.Stable"}, entry
+Path(os.environ["APPS"]).write_text(
+    "".join(section.removeprefix("Flatpak Preinstall ") + "\n" for section in entries))
 if desktop:
     config = configparser.ConfigParser(interpolation=None)
     config.read(remote)
@@ -62,15 +65,17 @@ assert remote["collection-id"] == "org.flathub.Stable"
 assert Path("/var/lib/flatpak/repo/flathub.trustedkeys.gpg").stat().st_size > 1000
 PY
 		# Exercise the packaged parser without pulling apps. Missing cached refs
-		# can fail offline; the verbose parser must still find both active refs.
-		log=$(mktemp)
-		trap 'rm -f "${log}"' EXIT
+		# can fail offline; the verbose parser must still find every active ref.
+		log="${tmp}/preinstall.log"
 		flatpak preinstall --system --no-pull --noninteractive --verbose >"${log}" 2>&1 || true
-		for app in org.mozilla.firefox org.gnome.Calculator; do
-			grep -F "Found preinstall ref app/${app}/$(flatpak --default-arch)/stable" "${log}"
-		done
+		arch=$(flatpak --default-arch)
+		while read -r app; do
+			grep -F "Found preinstall ref app/${app}/${arch}/stable" "${log}"
+		done <"${tmp}/apps"
+		test "$(systemctl is-enabled atomic-linux-flatpak-preinstall.service)" = enabled
 	else
 		test -z "${remotes}"
+		test ! -e /usr/lib/systemd/system/atomic-linux-flatpak-preinstall.service
 	fi
 elif [[ "${VARIANT}" == desktop ]]; then
 	echo 'error: desktop lacks flatpak' >&2

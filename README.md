@@ -84,8 +84,8 @@ The variants, chosen at build time with `VARIANT` (`build/40-variant.sh`):
   GDM on `graphical.target`, with Mesa RADV/Vulkan userspace. See
   [Desktop operation](docs/desktop.md) for rootless GPU workloads and opt-in
   TTM build arguments, suspend settings and Wi-Fi diagnostics. It ships the
-  system Flathub remote and a small Flatpak preinstall list, not installed
-  apps; see [Desktop Flatpaks](#desktop-flatpaks).
+  system Flathub remote and a Flatpak preinstall list that it installs on
+  first boot; see [Desktop Flatpaks](#desktop-flatpaks).
 
 Each variant's packages, files and units are drop-ins under
 `custom/variants/<variant>/`, laid out like the base's `custom/packages`,
@@ -102,20 +102,24 @@ use, even offline. Signature verification stays enabled. Fedora's remote
 setup service remains masked and removed. No remote registration or app
 downloads run during the build: final cleanup deletes `/var` state.
 
-The desktop's `preinstall.d/default.preinstall` requests stable
-`org.mozilla.firefox` and `org.gnome.Calculator` from that collection. The
-server ships neither payload and stays headless. This does **not** promise
-installed apps at first login: use the packaged command explicitly after
-boot, when network access and download time are acceptable:
+The desktop's `preinstall.d/default.preinstall` requests a core set of
+stable apps from that collection, similar to Bluefin's: Firefox and GNOME's
+standard apps (calculator, calendar, image and document viewers, media
+players and so on), plus Flatseal, Extension Manager and Mission Center.
+The enabled `atomic-linux-flatpak-preinstall.service` runs
 
 ```sh
-sudo flatpak preinstall --system --noninteractive
+flatpak preinstall --system --assumeyes --noninteractive
 ```
 
-This downloads apps and their shared runtimes into `/var/lib/flatpak`, which
-can take substantial space and time. On a fresh offline host the remote can
-be discovered, but the apps cannot be downloaded; retry the command online.
-No new background service or timer is enabled. See
+in the background once the network is online, on every boot: the first
+boot installs the set, later boots add entries an image update brings, and
+Flatpak remembers apps a user uninstalled. It downloads about 1.5 GB of apps
+and runtimes into `/var/lib/flatpak`, so the apps appear some minutes after
+the first login. Offline, it gives up after three attempts and retries on the
+next boot. The server ships neither the remote, the list nor the service.
+To opt out, a derived image or administrator disables or masks the service,
+or overrides single entries. See
 [Flatpak preinstall integration](custom/flatpaks/README.md) for the checked
 Fedora package interface, downstream overrides and runtime verification.
 

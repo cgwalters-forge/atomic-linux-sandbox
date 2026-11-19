@@ -183,11 +183,9 @@ image with `VARIANT=desktop just ephemeral-smoke` or the persistent VM recipes
 for target/GDM activation; neither establishes interactive GNOME login, AMD
 GPU inference or Wi-Fi reliability. Those require a real session and hardware.
 
-Flathub remote/preinstall work belongs to
-https://github.com/cgwalters-forge/atomic-linux-sandbox/issues/33 (open when
-checked); this checkout has Flatpak but no active Flathub remote or preinstall
-set. Remote discovery/first-login installation remains an integration dependency,
-not a passed check here. The runner stack belongs to
+The Flathub remote and the apps installed on first boot are described in
+[Desktop Flatpaks](../README.md#desktop-flatpaks); no VM test confirms the
+downloads. The runner stack belongs to
 https://github.com/cgwalters-forge/atomic-linux-sandbox/pull/55 (open, unmerged
 when checked). Its reported image and VM CI checks succeed on that PR's head,
 not on this combined change; no runner changes are duplicated here. Validate
