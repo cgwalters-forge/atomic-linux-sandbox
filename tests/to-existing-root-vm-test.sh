@@ -21,7 +21,7 @@ source "$(dirname "$0")/libvirt-vm.sh"
 
 # x86_64 fedora-bootc:45, ostree-based; it has cryptsetup, the TPM2 token
 # plugin in its initramfs, podman and jq.
-START_IMAGE="${START_IMAGE:-quay.io/fedora/fedora-bootc@sha256:a14fce7d40c31ad2f924444c2d7d3424a9f4617c561ea1ef729df9c5e3205455}"
+START_IMAGE="${START_IMAGE:-quay.io/fedora/fedora-bootc:45}"
 readonly MARKER=/usr/share/atomic-linux-to-existing-root-test
 readonly OLD_MARKER=atomic-linux-old-marker
 readonly OLD_HOME=/var/home/atomic-linux-test

@@ -56,7 +56,9 @@ jobs:
 
       # Frees disk, puts rootful podman storage on a btrfs loopback and
       # installs a current podman and just (the image is several GB).
-      - uses: projectbluefin/actions/bootc-build/setup-runner@75348afb3a34c6006a3d3da51e51c9a3818b2616 # v1
+      # projectbluefin moves v1 several times a day, so the comment can't
+      # track it; Dependabot bumps the commit.
+      - uses: projectbluefin/actions/bootc-build/setup-runner@60c9845049b89b668a5704ca472b165845a253d0 # v1 # zizmor: ignore[ref-version-mismatch]
         with:
           storage-backend: btrfs
           native-overlay: "true"

@@ -11,9 +11,11 @@
 # local build scripts and files plus OCI context images, and RUN steps bind
 # mount it at /ctx.
 
-# OCI context images, pinned by digest (Dependabot proposes bumps).
-FROM ghcr.io/projectbluefin/common:latest@sha256:8d11dd33fe3dfa6c960c0543e6b309a5a2517b7a6fef438647ae53a5f500f7ec AS common
-FROM ghcr.io/ublue-os/brew:latest@sha256:c201bc801e4828849e8e36c4adcb5c0f38d35ac3ff9546a0ecab0fd2beabf51f AS brew
+# OCI context images, pinned by tag, never by digest: registries drop old
+# digests. common's tag is a projectbluefin/common commit and brew's a date;
+# Renovate proposes bumps (renovate.json).
+FROM ghcr.io/projectbluefin/common:8820523 AS common
+FROM ghcr.io/ublue-os/brew:20261115 AS brew
 
 FROM scratch AS ctx
 COPY build /build
@@ -30,7 +32,7 @@ COPY --from=brew /system_files /oci/brew
 # so no layer of the image carries them. rpm-ostree needs the privileges the
 # Justfile's build recipe passes. Alternative with the same layout:
 # quay.io/centos-bootc/centos-bootc:stream10.
-FROM quay.io/fedora/fedora-bootc:45@sha256:69b66da0839f186f799addae6620aae19a6998b3fd4d2def00168c8dab50c486 AS builder
+FROM quay.io/fedora/fedora-bootc:45 AS builder
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/bootc-base-imagectl build-rootfs --manifest=standard --cachedir=/var/cache/rpm-ostree / /target-rootfs \
     && rm -rf /target-rootfs/ostree /target-rootfs/sysroot/ostree

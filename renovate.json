@@ -1,0 +1,41 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["dockerfile", "custom.regex"],
+  "pinDigests": false,
+  "packageRules": [
+    {
+      "description": "common's sha tags are not versions; the git-refs manager below tracks them",
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["ghcr.io/projectbluefin/common"],
+      "enabled": false
+    },
+    {
+      "description": "A Fedora release bump is a deliberate change with its own testing",
+      "matchPackageNames": ["quay.io/fedora/fedora-bootc"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Bump common to main's newest commit; CI fails until ghcr has that sha tag",
+      "managerFilePatterns": ["/(^|/)Containerfile$/"],
+      "matchStrings": ["FROM ghcr\\.io/projectbluefin/common:(?<currentDigest>[0-9a-f]{7,40}) "],
+      "depNameTemplate": "projectbluefin/common",
+      "datasourceTemplate": "git-refs",
+      "packageNameTemplate": "https://github.com/projectbluefin/common",
+      "currentValueTemplate": "main",
+      "autoReplaceStringTemplate": "FROM ghcr.io/projectbluefin/common:{{{newDigestShort}}} "
+    },
+    {
+      "customType": "regex",
+      "description": "The busybox image k3s-validate runs",
+      "managerFilePatterns": ["/^custom/system/usr/libexec/k3s-validate$/"],
+      "matchStrings": ["docker\\.io/library/busybox:(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "docker.io/library/busybox",
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

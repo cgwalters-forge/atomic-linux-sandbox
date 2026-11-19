@@ -131,7 +131,7 @@ cleanup_probes() {
 trap cleanup_probes EXIT
 cleanup_probes
 
-k3s kubectl run "${network_pod}" --restart=Never --image=docker.io/library/busybox@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0 -- \
+k3s kubectl run "${network_pod}" --restart=Never --image=docker.io/library/busybox:1.38.0 -- \
     sh -ceu 'nslookup kubernetes.default.svc.cluster.local && wget -q --spider https://example.com'
 for attempt in $(seq 1 90); do
     phase=$(k3s kubectl get "pod/${network_pod}" -o jsonpath='{.status.phase}')
@@ -148,7 +148,7 @@ done
 k3s kubectl logs "${network_pod}" >/dev/null
 cleanup_pod "${network_pod}"
 
-k3s kubectl run "${resource_pod}" --restart=Never --image=docker.io/library/busybox@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0 -- \
+k3s kubectl run "${resource_pod}" --restart=Never --image=docker.io/library/busybox:1.38.0 -- \
     sh -ceu 'trap "exit 0" TERM INT; sleep 300'
 container_id=''
 for attempt in $(seq 1 90); do

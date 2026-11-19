@@ -22,7 +22,7 @@ and images are not yet signed.
 
 The shared base, in both variants:
 
-- Fedora bootc 45, digest-pinned, with Universal Blue's
+- Fedora bootc 45, tracking the `45` tag, with Universal Blue's
   Homebrew integration (`brew-setup`, update and upgrade timers), a `ujust`
   launcher with host maintenance commands, and example Brewfiles.
   `@projectbluefin/common` is in the build context but not overlaid.
@@ -232,7 +232,7 @@ keeps `rd.luks.uuid` and the subvolume `rootflags`, and leaves the old
 `/etc`, `/var` and home directory only under `/sysroot`.
 
 The builder stage installs whatever Fedora 45's repositories carry at build
-time; the base digest pins the build tools and manifest, not the packages.
+time; the base tag picks the Fedora release, not the packages.
 
 **Signatures.** On composefs, bootc ignores
 `--enforce-container-sigpolicy` and records the origin as unverified, but
@@ -377,8 +377,9 @@ that its config is the image the VM jobs booted; nothing is rebuilt. A
 failed VM test leaves `stable` where it was, and `promote` skips a build
 that is no longer the head of `main`. The workflow's
 `GITHUB_TOKEN` (`packages: write`) is the only credential, and the job
-summaries print the digest. Dependabot proposes digest bumps for the `FROM`
-lines and action pins.
+summaries print the digest. Images are pinned by tag, not digest; Renovate
+proposes bumps of the context image tags and busybox, and Dependabot of the
+action pins.
 
 CI builds, tests and publishes only the default desktop variant so far, so
 `stable` and the version tags stay a GNOME desktop. The server variant is not
