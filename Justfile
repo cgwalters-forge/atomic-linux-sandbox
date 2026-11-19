@@ -87,7 +87,7 @@ build-transient-etc tag="transient-etc":
 # ShellCheck over build scripts, host helpers and tests, plus audit parser tests.
 [group('Quality')]
 lint:
-    shellcheck build/*.sh custom/system/usr/libexec/k3s-* tests/*.sh tests/image/*.sh tests/kubevirt/*.sh
+    shellcheck build/*.sh custom/system/usr/libexec/k3s-* custom/system/usr/libexec/ci-runner-account tests/*.sh tests/image/*.sh tests/kubevirt/*.sh
     python3 -B -m unittest discover -s tests -p 'test_transient_etc*.py'
     python3 -B -m unittest discover -s tests -p 'test_desktop.py'
 

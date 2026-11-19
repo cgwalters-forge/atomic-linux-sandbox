@@ -1,0 +1,14 @@
+# Virtualization host for per-job CI VMs. Of libvirt's drivers only QEMU and
+# network are installed; the other daemons (storage, nodedev, secret, ...)
+# and libvirt-daemon-config-network's default NAT network are left out.
+libvirt-daemon-driver-qemu
+libvirt-daemon-driver-network
+libvirt-client
+qemu-kvm
+edk2-ovmf
+swtpm
+swtpm-tools
+virtiofsd
+bcvk
+podman
+nftables

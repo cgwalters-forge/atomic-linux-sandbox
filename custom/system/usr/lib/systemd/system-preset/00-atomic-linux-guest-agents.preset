@@ -1,0 +1,9 @@
+# This image is a VM host, not a guest. First match wins: sort before vendor
+# enable rules so package installation and first-boot preset-all leave them off.
+# hypervkvpd, hypervvssd and spice-vdagentd have no [Install] section; udev
+# starts them only inside their own hypervisor.
+disable qemu-guest-agent.service
+disable vmtoolsd.service
+disable vgauthd.service
+disable hypervfcopyd.service
+disable vboxservice.service

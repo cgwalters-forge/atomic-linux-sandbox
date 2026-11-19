@@ -39,8 +39,8 @@ The shared base, in both variants:
 - Debug tools for hosts that cannot easily rebuild: `strace`, `ltrace`,
   `perf`, `bpftrace` and `sysstat`. sysstat's periodic collection into
   `/var/log/sa` is preset off; `systemctl enable sysstat.service` turns it on.
-- Cockpit web console and system, Podman, storage, NetworkManager and VM
-  management pages, with `cockpit.socket` disabled (also by first-boot presets).
+- Cockpit web console and system, Podman, storage and NetworkManager pages,
+  with `cockpit.socket` disabled (also by first-boot presets).
   No Cockpit firewall opening or VPN configuration is shipped. Access is a
   [downstream-only opt-in](docs/cockpit.md).
 - `sshd.service` enabled, because bcvk's VM install waits for SSH. That is a
@@ -58,6 +58,11 @@ The shared base, in both variants:
   meant to be fetched and staged in the background and never trigger a
   reboot. On composefs the timer does not run yet; see
   [docs/updates.md](docs/updates.md).
+- A host for running CI jobs in per-job VMs: libvirt with only its QEMU and
+  network drivers (no default NAT network), QEMU with OVMF, swtpm, virtiofsd,
+  bcvk, podman and nftables. Fedora's VM guest agents are disabled by a
+  preset. `ci-runner.service` (user `ci-runner`) is a disabled hook for an
+  externally built runner daemon in `runner.slice`; the image ships no daemon.
 - `bootc install` defaults to a btrfs root.
 - Container short names are enforcing, with no search registries.
 - firewalld enabled, and the default `FedoraWorkstation` zone (selected by
@@ -171,6 +176,23 @@ and bump it in its own pull request. Configuration hooks:
 | `/etc/systemd/system/runner.slice.d/*.conf` | Runner memory and CPU limits; see [Runner slice](#runner-slice) |
 | `/etc/modules-load.d/`, `/etc/modprobe.d/` | Hardware modules and options, e.g. `kvm_intel nested=1` |
 | `/etc/ssh/sshd_config.d/` | sshd settings; a file sorting before `40-atomic-linux.conf` overrides the key-only defaults |
+| `/usr/libexec/ci-runner/ci-runner` | A CI runner daemon; enable `ci-runner.service` to run it, with settings in `/etc/ci-runner/environment` |
+
+Starting `ci-runner.service` creates its system account with subordinate
+UID and GID ranges according to `login.defs`. If a derived image supplies
+the account through systemd-sysusers, provision non-overlapping ranges of at
+least 65536 IDs in `/etc/subuid` and `/etc/subgid` before starting the service.
+The service checks existing mappings rather than changing them, since
+rootless Podman storage may already depend on them.
+
+Use `bcvk ephemeral` for throwaway VMs without a libvirt storage pool.
+`bcvk libvirt` operations that use the `default` pool (including `run`)
+need libvirt's storage driver and directory backend in the derived image.
+For `qemu:///session` under `ci-runner.service`, bcvk's default pool path
+is `/var/lib/ci-runner/.local/share/libvirt/images` unless `XDG_DATA_HOME`
+is set; for `qemu:///system` it is `/var/lib/libvirt/images`. Configure
+the libvirt connection and storage permissions in the derived image. VMs
+launched by system libvirt are not placed in `runner.slice` by this service.
 
 A derived image that installs packages should run `dnf5 clean all` (or reuse
 this repository's `build/clean-stage.sh` pattern) so its own
