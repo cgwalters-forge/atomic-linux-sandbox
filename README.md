@@ -58,7 +58,8 @@ The shared base, in both variants:
   meant to be fetched and staged in the background and never trigger a
   reboot. On composefs the timer does not run yet; see
   [docs/updates.md](docs/updates.md).
-- `bootc install` defaults to a btrfs root.
+- `bootc install` defaults to a btrfs root and allows a LUKS2 root unlocked
+  by the TPM (`--block-setup tpm2-luks`, see [docs/install.md](docs/install.md)).
 - Container short names are enforcing, with no search registries.
 - firewalld enabled, and the default `FedoraWorkstation` zone (selected by
   the build, since fedora-bootc defaults to `public`) denies

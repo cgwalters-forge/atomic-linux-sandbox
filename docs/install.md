@@ -5,7 +5,8 @@
 Nothing here has been run on hardware yet (see the README's status). The
 commands follow bootc's documentation as of November 2026:
 [installation](https://bootc.dev/bootc/bootc-installation.7.html),
-[`install to-existing-root`](https://bootc.dev/bootc/man/bootc-install-to-existing-root.8.html)
+[`install to-existing-root`](https://bootc.dev/bootc/man/bootc-install-to-existing-root.8.html),
+[`install to-disk`](https://bootc.dev/bootc/man/bootc-install-to-disk.8.html)
 and [`switch`](https://bootc.dev/bootc/man/bootc-switch.8.html).
 
 Use `IMAGE` below for the image you install: usually a derived image (see
@@ -146,6 +147,124 @@ podman run --rm --privileged --pid=host --ipc=host \
   IMAGE \
   bootc install to-disk --root-ssh-authorized-keys /authorized_keys /dev/sdX
 ```
+
+### Encrypted root with TPM2 unlock
+
+`--block-setup tpm2-luks` puts the root in LUKS2 and binds its only key to
+the TPM of the machine running the installer, so the system boots without a
+passphrase. Run `to-disk` on the target machine itself, booted from live
+media, since a disk prepared elsewhere is bound to the other machine's TPM.
+The image permits this setup but keeps an unencrypted root as the default,
+so the layout is always chosen by install options. bootc adds an
+unencrypted 510 MiB `/boot` partition and the kernel arguments `luks.uuid=`
+and `luks.options=tpm2-device=auto,headless=true`:
+
+```sh
+podman run ... IMAGE \
+  bootc install to-disk --block-setup tpm2-luks --root-size 100G \
+    --root-ssh-authorized-keys /authorized_keys /dev/sdX
+```
+
+`--root-size` leaves the rest of the disk unpartitioned for a data volume;
+leave it out if the data goes on another disk. Two things to know about the
+key bootc enrolls:
+
+- There is no recovery key or passphrase. If the TPM is cleared, the
+  firmware is reset or the board is replaced, the root cannot be unlocked.
+- systemd 258 and later seal TPM2 keys to no PCRs by
+  default. The TPM releases the key to anything booted on that machine, so
+  this protects a disk removed from the machine (a failed or discarded
+  drive), not a stolen machine.
+
+After the first boot, as root, enroll a recovery key and keep it off the
+machine, then optionally rebind the TPM key to the Secure Boot state
+(PCR 7). That PCR usually stays the same across kernel and bootloader
+updates but changes when the firmware's Secure Boot database is updated;
+you then type the recovery key at the console once and repeat the
+`--tpm2-pcrs=7` command.
+
+```sh
+dev=/dev/disk/by-uuid/$(sed -n 's/.*luks\.uuid=\([^ ]*\).*/\1/p' /proc/cmdline)
+systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$dev"
+systemd-cryptenroll --unlock-tpm2-device=auto --wipe-slot=tpm2 \
+  --tpm2-device=auto --tpm2-pcrs=7 "$dev"
+```
+
+`headless=true` forbids the recovery prompt. `rpm-ostree kargs` does not
+work on composefs; for the GRUB install above, edit the booted deployment's
+entry in `/boot/loader/entries/`. Remount `/boot` read-write for the edit,
+replace `luks.options=tpm2-device=auto,headless=true` with
+`luks.options=tpm2-device=auto` on the `options` line, then remount `/boot`
+read-only. Leave the other options intact. Bootc takes the booted entry's
+arguments as the starting point for upgrades.
+
+### Separate data volume
+
+Put the encrypted volume for `/var/home` and VM and runner storage on a
+second disk if you need to reinstall the root without touching that data.
+`to-disk` repartitions the entire target disk, including any data partition
+on it. Do not use `to-existing-root` from the installed composefs host:
+its running root is read-only EROFS. This guide does not cover a
+data-preserving reinstall with both volumes on the same disk.
+
+Create the volume after the first boot and before creating users, since
+mounting it hides whatever `/var/home` already holds. `DATA` is the second
+disk or a new partition in the free space
+(`echo 'name=data' | sfdisk --append --no-reread /dev/sdX`). The
+passphrase you set is the volume's recovery key:
+
+```sh
+cryptsetup luksFormat --type luks2 DATA
+systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 DATA
+uuid=$(cryptsetup luksUUID DATA)
+cryptsetup open DATA data
+mkfs.btrfs -L data /dev/mapper/data
+mount /dev/mapper/data /mnt
+btrfs subvolume create /mnt/home /mnt/libvirt
+umount /mnt
+cryptsetup close data
+```
+
+As above, edit the `options` line of the booted entry. Append these three
+arguments to that line, replacing `<uuid>` with the value of `$uuid`, then
+reboot:
+
+```text
+luks.name=<uuid>=data
+systemd.mount-extra=/dev/mapper/data:/var/home:btrfs:subvol=home
+systemd.mount-extra=/dev/mapper/data:/var/lib/libvirt:btrfs:subvol=libvirt
+```
+
+bootc's `luks.options=` carries no UUID, so it also applies to the data
+volume: it unlocks with the TPM and falls back to a passphrase prompt only
+if you dropped `headless=true` as above. After the reboot, run
+`restorecon -R /var/home /var/lib/libvirt` once so the new subvolumes get
+their SELinux labels. Add a subvolume and a `systemd.mount-extra=` argument
+for each further path, such as a CI runner's work directory. When you
+reinstall the root, pass the same arguments as `--karg` options to
+`bootc install` and the volume is mounted again on the first boot. The new
+root is back to bootc's TPM key and `headless=true`, so repeat the steps
+under "Encrypted root with TPM2 unlock" before the next Secure Boot
+database update, and recreate users with their old UID and GID, as in
+"After the first boot" above, so the files' ownership still matches.
+
+### Rehearsing with bcvk
+
+bcvk's `to-disk` has no `--block-setup` option and its VM has no TPM, so it
+cannot exercise `tpm2-luks`. It can rehearse the partition layout and the
+image's install configuration in a disk image (not yet run with this
+image):
+
+```sh
+bcvk to-disk --disk-size 20G --root-size 10G IMAGE /var/tmp/layout.img
+sfdisk -l /var/tmp/layout.img
+```
+
+On x86_64 the result has a 1 MiB BIOS boot partition, a 512 MiB EFI system
+partition and a 10 GiB root, with the rest of the disk free. `tpm2-luks`
+adds the 510 MiB `boot` partition before the root.
+
+### Installer ISOs
 
 An installer ISO needs osbuild's
 [image-builder](https://osbuild.org/docs/developer-guide/projects/image-builder/usage/#bootc)

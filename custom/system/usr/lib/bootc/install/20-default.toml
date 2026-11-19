@@ -1,2 +1,5 @@
 [install]
 root-fs-type = "btrfs"
+# The first entry is the default; the others are only permitted, so
+# `--block-setup tpm2-luks` works (docs/install.md).
+block = ["direct", "tpm2-luks"]
