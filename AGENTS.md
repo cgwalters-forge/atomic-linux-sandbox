@@ -45,7 +45,11 @@ and KVM; say which you ran in the pull request.
   it passing rather than relaxing it.
 - k3s stays installed but disabled, and its modules and sysctls load only
   through `k3s-preflight.service`, so the image stays a normal desktop.
-- Base and context images stay pinned by digest.
+- Base and context images stay pinned by digest. Fedora bootc and the test
+  start images come from the forge-infra mirror as
+  `ghcr.io/cgwalters-forge/<image>:<dated tag>@sha256:<digest>`, never a
+  bare moving tag or a quay.io digest, which quay prunes; Renovate bumps
+  tag and digest together.
 - The derivation hooks in the README (`write-image-info`, the k3s drop-in
   directory, `/etc/default/k3s-preflight`) are an interface for downstream
   images; change them only with a note in the README.

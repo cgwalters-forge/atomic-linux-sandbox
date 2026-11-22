@@ -29,11 +29,12 @@ COPY --from=brew /system_files /oci/brew
 # link and repository (/ostree, /sysroot/ostree) are dropped before the copy,
 # so no layer of the image carries them. rpm-ostree needs the privileges the
 # Justfile's build recipe passes. Alternative with the same layout:
-# quay.io/centos-bootc/centos-bootc:stream10. Pulled from Fedora's registry,
-# which serves the same digests as quay.io/fedora/fedora-bootc; quay drops
-# them within a day or so of the tag moving, while Fedora's registry has so
-# far kept them (no documented retention policy).
-FROM registry.fedoraproject.org/fedora-bootc:45@sha256:881c4dd0acb6cc416d5fd484582b79b110eed31e4c971b1fc7d2990be2b18970 AS builder
+# quay.io/centos-bootc/centos-bootc:stream10. Pulled from our mirror of
+# quay.io/fedora/fedora-bootc (cgwalters-forge/forge-infra), whose dated
+# tags (<upstream tag>.<YYYYMMDD>.<run>.<attempt>) are never deleted; quay
+# prunes a digest within a day or so of its tag moving. Renovate bumps tag
+# and digest together (.github/renovate.json).
+FROM ghcr.io/cgwalters-forge/fedora-bootc:45.20261122.2.1@sha256:f387c5f622d2f095e23b1587c97a4d4659231df6c8a649329839a9336a99c5e4 AS builder
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/bootc-base-imagectl build-rootfs --manifest=standard --cachedir=/var/cache/rpm-ostree / /target-rootfs \
     && rm -rf /target-rootfs/ostree /target-rootfs/sysroot/ostree

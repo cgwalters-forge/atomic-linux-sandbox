@@ -20,9 +20,9 @@ image="${1:?usage: $0 IMAGE}"
 source "$(dirname "$0")/libvirt-vm.sh"
 
 # x86_64 fedora-bootc:45, ostree-based; it has cryptsetup, the TPM2 token
-# plugin in its initramfs, podman and jq. 45.20261121.0, from Fedora's
-# registry for the reason given at the Containerfile's builder stage.
-START_IMAGE="${START_IMAGE:-registry.fedoraproject.org/fedora-bootc@sha256:37832fbd95c5c168f566736e3a3fab6f0dab85ab389f04112f2e2c6e11fe9062}"
+# plugin in its initramfs, podman and jq. 45.20261121.0, from our mirror
+# for the reason given at the Containerfile's builder stage.
+START_IMAGE="${START_IMAGE:-ghcr.io/cgwalters-forge/fedora-bootc-ostree:latest.20261122.2.1@sha256:37832fbd95c5c168f566736e3a3fab6f0dab85ab389f04112f2e2c6e11fe9062}"
 readonly MARKER=/usr/share/atomic-linux-to-existing-root-test
 readonly OLD_MARKER=atomic-linux-old-marker
 readonly OLD_HOME=/var/home/atomic-linux-test

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Only the forge-infra mirror pins; Dependabot keeps the other images and the action pins (.github/dependabot.yml)",
+  "enabledManagers": ["custom.regex"],
+  "customManagers": [
+    {
+      "description": "ghcr.io/cgwalters-forge/<image>:<upstream tag>.<YYYYMMDD>.<run>.<attempt>@sha256:..., tag and digest moved together; the upstream tag is the compatibility part, so 45 never becomes 46",
+      "customType": "regex",
+      "managerFilePatterns": ["/^Containerfile[^/]*$/", "/^tests/.+\\.sh$/"],
+      "matchStrings": [
+        "(?<depName>ghcr\\.io/cgwalters-forge/(?:fedora-bootc|fedora-bootc-ostree|os-minimal)):(?<currentValue>[a-z0-9]+\\.\\d{8}\\.\\d+\\.\\d+)@(?<currentDigest>sha256:[0-9a-f]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^(?<compatibility>[a-z0-9]+)\\.(?<major>\\d{8})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "The mirror tags daily; propose at most one bump a week, as Dependabot does",
+      "matchManagers": ["custom.regex"],
+      "schedule": ["* * * * 1"]
+    }
+  ]
+}

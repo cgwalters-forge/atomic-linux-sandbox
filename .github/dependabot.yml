@@ -13,6 +13,8 @@ updates:
     ignore:
       - dependency-name: fedora-ostree-desktops/silverblue
         update-types: [version-update:semver-major]
+      # The forge-infra mirror pins are Renovate's (.github/renovate.json).
+      - dependency-name: "*cgwalters-forge/*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
