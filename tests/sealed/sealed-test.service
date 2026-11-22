@@ -1,0 +1,13 @@
+[Unit]
+Description=Disposable Secure Boot VM test driver
+ConditionVirtualization=kvm
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /usr/libexec/atomic-linux-sealed-test
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=20min
+
+[Install]
+WantedBy=multi-user.target

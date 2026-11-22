@@ -87,14 +87,14 @@ build-transient-etc tag="transient-etc":
 # ShellCheck over build scripts, host helpers and tests, plus audit parser tests.
 [group('Quality')]
 lint:
-    shellcheck build/*.sh custom/system/usr/libexec/k3s-* tests/*.sh tests/image/*.sh tests/kubevirt/*.sh
+    shellcheck build/*.sh custom/system/usr/libexec/k3s-* tests/*.sh tests/image/*.sh tests/kubevirt/*.sh tests/sealed/*.sh
     python3 -B -m unittest discover -s tests -p 'test_transient_etc*.py'
     python3 -B -m unittest discover -s tests -p 'test_desktop.py'
 
 # Containerfile lint (pulls the hadolint image).
 [group('Quality')]
 hadolint:
-    ${PODMAN} run --rm -i -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml:ro,Z" docker.io/hadolint/hadolint:v2.12.0 < Containerfile
+    for file in Containerfile build/Containerfile.sealed tests/sealed/Containerfile; do ${PODMAN} run --rm -i -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml:ro,Z" docker.io/hadolint/hadolint:v2.12.0 < "$file" || exit; done
 
 # Justfile formatting.
 [group('Quality')]
@@ -185,6 +185,11 @@ k3s-vm-test:
 [group('Virtual Machine')]
 composefs-vm-test tag=DEFAULT_TAG:
     tests/composefs-vm-test.sh "{{ local_image }}:{{ tag }}"
+
+# Disposable Secure Boot enrollment, sealed update and unsigned boot rejection.
+[group('Virtual Machine')]
+sealed-vm-test code vars tag=DEFAULT_TAG:
+    bash tests/sealed-vm-test.sh "{{ local_image }}:{{ tag }}" "{{ code }}" "{{ vars }}"
 
 # Move a LUKS2+btrfs ostree host in a disposable VM with to-existing-root.
 [group('Virtual Machine')]

@@ -1,0 +1,54 @@
+# Finalize an already customized, local composefs image. The context contains
+# only db.crt and public auto/{PK,KEK,db}.auth, never any private material.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS prepared
+
+RUN --mount=type=tmpfs,target=/tmp --mount=type=tmpfs,target=/boot \
+    dnf5 -y remove --no-autoremove bootupd 'grub2*' 'shim*' 'systemd-boot-x64' \
+    && dnf5 -y install --setopt=install_weak_deps=False systemd-boot-unsigned \
+    && dnf5 clean all \
+    && rm -rf /run/dnf /run/dnf5 /usr/lib/bootupd \
+    && test ! -e /usr/bin/bootupctl && test ! -e /usr/bin/grub2-install
+
+COPY auto/PK.auth auto/KEK.auth auto/db.auth /usr/lib/bootc/install/secureboot-keys/auto/
+RUN install -d /usr/lib/bootc/install/systemd-boot /usr/lib/bootc/kargs.d \
+    && printf '[install]\nbootloader = "systemd"\n' > /usr/lib/bootc/install/90-sealed.toml \
+    && printf 'secure-boot-enroll if-safe\n' > /usr/lib/bootc/install/systemd-boot/loader.conf \
+    && printf 'kargs = ["console=ttyS0"]\n' > /usr/lib/bootc/kargs.d/90-sealed.toml
+
+FROM prepared AS tools
+RUN --mount=type=tmpfs,target=/tmp --mount=type=tmpfs,target=/boot \
+    dnf5 -y install --setopt=install_weak_deps=False systemd-ukify sbsigntools \
+    && dnf5 clean all
+COPY db.crt /db.crt
+
+RUN --mount=type=secret,id=secureboot_key,required=true \
+    sbsign --key /run/secrets/secureboot_key --cert /db.crt \
+        --output /systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi \
+    && sbverify --cert /db.crt /systemd-bootx64.efi.signed
+
+# Follow the recipe in the pinned bootc's bootc-sealed-images(7). Discard the
+# split-off binaries here; the UKI stage reads the same binaries from prepared.
+FROM prepared AS split
+COPY --from=tools /systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/
+RUN bootc container split-kernel-and-rootfs --rootfs / --output /kernel \
+    && rm -rf /kernel
+
+FROM tools AS uki
+RUN --mount=type=bind,from=split,target=/target \
+    --mount=type=bind,from=prepared,source=/usr/lib/modules,target=/kernels \
+    --mount=type=secret,id=secureboot_key,required=true \
+    set -eu; \
+    set -- /kernels/*/vmlinuz; test "$#" = 1; test -f "$1"; \
+    mkdir /out; \
+    bootc container ukify --rootfs /target --kernel-dir "${1%/*}" -- \
+      --output /out/sealed.efi --signtool sbsign \
+      --secureboot-private-key /run/secrets/secureboot_key --secureboot-certificate /db.crt; \
+    sbverify --cert /db.crt /out/sealed.efi
+
+FROM split
+# Put lint in the same layer as the UKI, not an empty layer. The UKI under
+# /boot is outside the digest of the mounted root filesystem.
+RUN --mount=type=bind,from=uki,source=/out,target=/uki \
+    install -D -m 0644 /uki/sealed.efi /boot/EFI/Linux/sealed.efi \
+    && bootc container lint --fatal-warnings

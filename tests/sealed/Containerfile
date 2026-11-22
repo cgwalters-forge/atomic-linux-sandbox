@@ -1,0 +1,10 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG MARKER
+ARG TEST_REPO
+COPY guest.sh /usr/libexec/atomic-linux-sealed-test
+COPY sealed-test.service /usr/lib/systemd/system/
+RUN mkdir /usr/share/atomic-linux-sealed-test \
+    && printf '%s\n' "$MARKER" > /usr/share/atomic-linux-sealed-test/marker \
+    && printf '%s\n' "$TEST_REPO" > /usr/share/atomic-linux-sealed-test/repo \
+    && systemctl enable sealed-test.service

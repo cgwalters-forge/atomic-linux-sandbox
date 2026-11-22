@@ -259,6 +259,58 @@ Known gaps, as of bootc 1.17.1 (October 2026):
 A derived image inherits the backend. If it changes bootc, it must also
 regenerate the initramfs, which carries bootc's mount code.
 
+## Sealed Secure Boot (VM test only, opt-in)
+
+An attacker who can write the EFI System Partition can otherwise replace
+the boot payload and the root digest it supplies. The sealed variant uses
+systemd-boot and a signed UKI that embeds the composefs digest. Secure Boot
+authenticates the UKI, and composefs verifies the mounted root against the
+embedded digest. This is not OCI image signing and does not authenticate
+writable host state such as `/var`.
+
+`build/Containerfile.sealed` is an explicit final build from `BASE_IMAGE`,
+an already customized local x86-64 composefs image built with this repo's
+default pinned `BOOTC_SOURCE=forge`. Its build context must
+contain only the public `db.crt` and `auto/{PK,KEK,db}.auth` files. It takes
+the db signing key via the `secureboot_key` build secret; use `--no-cache`
+because changing a secret does not invalidate cached build steps:
+
+```sh
+podman build --pull=never --no-cache --layers=false \
+  --build-arg BASE_IMAGE=localhost/atomic-linux:stable \
+  --secret "id=secureboot_key,src=$DB_KEY" \
+  -t localhost/atomic-linux:sealed-test -f build/Containerfile.sealed "$PUBLIC_CONTEXT"
+```
+
+Keep `DB_KEY` outside `PUBLIC_CONTEXT`. Bootc
+puts the enrollment files on the ESP; `secure-boot-enroll if-safe` allows
+automatic enrollment in the disposable VM, not forced enrollment on hardware.
+The build verifies both EFI signatures and keeps fatal bootc lint. **Customize
+an unsealed image first and seal the final rootfs. Do not derive from or
+modify a sealed result.** Include all required kernel arguments before sealing.
+
+For the local proof, build the normal image and give the test an explicit
+matching pair of raw OVMF pflash files: Secure Boot-capable CODE and a blank
+VARS template (not a vendor-key or Microsoft-key template). It needs x86-64
+KVM, QEMU, bcvk, Podman, OpenSSL, efitools, sbsigntool, binutils, sfdisk and
+mtools, and room for two image archives and disposable disks in `/var/tmp`.
+For example, with a distribution that installs the firmware at these paths:
+
+```sh
+just build
+just sealed-vm-test /usr/share/OVMF/OVMF_CODE_4M.secboot.fd /usr/share/OVMF/OVMF_VARS_4M.fd
+```
+
+The test makes disposable PK, KEK and db keys; only the db key reaches the
+build, via its secret mount. It checks Setup Mode in the installer, lets
+systemd-boot enroll and reboot, then checks enforcement and the mounted
+digest for both deployments after a local `bootc switch`. It also tries the
+same unsigned UKI on a disk with no alternate EFI payload, first with blank
+vars as a control and then with the enrolled VM's vars. It does not publish
+images or retain keys. The default build and release paths do not use this
+recipe. Production firmware trust, hardware enrollment and image publication
+are out of scope.
+
 ## Transient /etc (test variant, opt-in)
 
 `just build-transient-etc` builds `atomic-linux:transient-etc` with
