@@ -39,19 +39,46 @@ regressions and missing coverage; cite files and lines for actionable findings.
 State the exact admitted head SHA in the findings so a stale review cannot be
 mistaken for a review of a newer push.
 
+## Re-reviews
+
+In every round, review the whole pull request diff against the merge base
+and apply the same blocker criteria below. A defect that meets those
+criteria still blocks even if it was missed before or lies outside the
+latest update. Earlier findings can help prioritize where to start, but
+verify them against the admitted code. No prior verdict or reviewed SHA
+sets the scope or severity of a finding.
+
+## Output
+
 Return exactly one safe output: add_comment on the triggering pull request,
 or noop if no useful review can be made. Set only type and body on add_comment;
 do not set item_number or other routing fields: the workflow fixes the target.
 Report every finding you can see in this one pass, not only the first.
 Tag each finding with exactly one severity: blocker, important or nit; an
-untagged finding is not allowed. A blocker makes the change wrong for its
-main purpose, loses data, or opens a security hole with a concrete path you
-can state, such as what a weakened permission, gate, bound, pin, token
-placement or trigger now lets someone do. Anything less is important or a nit.
+untagged finding is not allowed. A blocker is a concrete failure to deliver
+the change's main purpose (including a fix that leaves its target bug in
+place), or a concrete defect the change introduces or makes reachable: a
+material regression, data loss, a security hole, or a concrete dependency
+integrity failure. State which input or event leads to what wrong result,
+such as what a weakened permission, gate, bound, pin, token placement or
+trigger now lets someone do, or which unintended package or source the image
+now trusts. A concrete path to accepting a dependency that lacks required
+verification is enough; no tampered artifact is needed. Apply the same
+blocker criteria when new code or configuration omits a safeguard required
+by repository policy. Speculative risks, unrelated pre-existing behavior,
+optional hardening and incidental documentation or test gaps are important
+or nits, with a suggested follow-up. An omission that defeats the main
+purpose of a documentation or test change is not incidental.
+
+When findings share a cause, report one finding at the highest severity
+among them. Name the fix to the underlying mechanism, such as what to
+replace or remove, and list the affected instances under it.
+
 The comment's first line starts with VERDICT: CHANGES only when there is at
-least one blocker, and VERDICT: APPROVE otherwise, and may go on with a short
-reason. Keep that line to the one verdict: a first line that also names the
-other verdict (or REJECT next to APPROVE) is refused and the comment is lost.
+least one blocker, and VERDICT: APPROVE otherwise, including when only
+important findings and nits remain. It may go on with a short reason. Keep
+that line to the one verdict: a first line that also names the other verdict
+(or REJECT next to APPROVE) is refused and the comment is lost.
 Then come the findings, most important first. In an approving review, list
 important findings and nits under a "Follow-ups" heading, each with its file
 and line, for later pull requests. When there is a blocker, the fix may take
