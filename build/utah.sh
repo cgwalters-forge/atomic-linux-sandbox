@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 # Add atomic-linux's host pieces to Utah (Containerfile.utah): k3s and its
 # configuration, the firewalld zones, the install configuration, key-only
-# sshd settings and the composefs-native setup. Keep Utah's desktop,
-# updater and bootc, and extend its Flatpak preinstall list.
+# sshd settings and the composefs-native setup with our forge bootc. Keep
+# Utah's desktop and updater, and extend its Flatpak preinstall list.
 
 set -euo pipefail
 
@@ -30,9 +30,10 @@ echo "::endgroup::"
 # Use Utah's existing preinstall service and Flathub remote.
 install -Dm0644 /ctx/build/utah.preinstall /usr/share/flatpak/preinstall.d/atomic-linux-utah.preinstall
 
-# fedora keeps the base image's bootc, here Utah's (1.17.4 when this was
-# written), which lacks the fork's to-existing-root fixes.
-BOOTC_SOURCE=fedora /ctx/build/15-bootc.sh
+# The default forge carry replaces Utah's bootc (1.17.4 when this was
+# written) for the fork's to-existing-root fixes. Its fc44 RPM installs on
+# Hummingbird's package base as it is.
+/ctx/build/15-bootc.sh
 
 # Also enables firewalld with our locked-down FedoraWorkstation zone as the
 # default, replacing Utah's lax zone.

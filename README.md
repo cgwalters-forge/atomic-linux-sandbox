@@ -352,14 +352,15 @@ workstation on Red Hat's Hummingbird packages, plus our host pieces from
 `build/utah.sh`. Those are k3s (installed but disabled, with its preflight,
 configuration and firewalld zone), the locked-down `FedoraWorkstation` zone
 as the default in place of Utah's `lax`, the `bootc install` configuration,
-key-only sshd settings, the composefs-native setup and `image-info.json`.
+key-only sshd settings, the composefs-native setup with the same forge bootc
+as the default image (see [Build and test](#build-and-test)) in place of
+Utah's 1.17.4, and `image-info.json`.
 `sshd.service` stays disabled by default, so the image does not open an SSH
 listener on TCP port 22. Utah's preinstall service adds the
 [#80 Flathub apps](build/utah.preinstall) alongside its existing Flatpaks on
 first boot; the apps are not baked into the image.
 
-Utah keeps its own bootc (1.17.4, without the fork's `to-existing-root`
-fixes) and ships Universal Blue's `uupd` updater with Dakota's systemd units
+Utah ships Universal Blue's `uupd` updater with Dakota's systemd units
 and hardware checks. The daily `uupd.timer` runs at 04:00; Utah also ships
 triggers for resume and connecting AC power. `uupd` uses `bootc upgrade`
 to stage an OS deployment for the next reboot without rebooting the
@@ -375,8 +376,7 @@ SSH-based tests, as the Utah VM jobs do.
 Status: it builds and passes `bootc container lint` (November 2026). CI's
 `image-utah` and `vm-utah-*` jobs build it and run the default image's VM
 suites on it (as the desktop variant) on pull requests and by hand; they are
-not required for a merge,
-the image is not pushed, and `vm-utah-to-existing-root` is allowed to fail.
+not required for a merge, and the image is not pushed.
 
 ## Build and test
 

@@ -220,8 +220,7 @@ jobs:
   # with the same VM suites as the default image. It is never pushed and
   # `ci` does not wait on it, so its failures do not block a merge. It runs
   # only on pull requests and by hand, so it cannot delay main's
-  # uncancelled runs and their promotion. vm-utah-to-existing-root may
-  # fail: Utah's stock bootc lacks the fork's to-existing-root fixes.
+  # uncancelled runs and their promotion.
   image-utah:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
@@ -269,7 +268,6 @@ jobs:
     needs: image-utah
     runs-on: ubuntu-26.04
     timeout-minutes: 60
-    continue-on-error: ${{ matrix.suite == 'to-existing-root' }}
     permissions:
       contents: read
     strategy:
