@@ -37,8 +37,8 @@ jobs:
       - uses: cgwalters-forge/actions/lint@main
       - run: shellcheck build/*.sh custom/system/usr/libexec/k3s-* tests/*.sh tests/kubevirt/*.sh
 
-  # Pull requests build and lint the image (the Containerfile ends with
-  # `bootc container lint`) and never push. On main the image is pushed only
+  # Pull requests build and test the image and never push. The Containerfile
+  # ends with `bootc container lint`. On main the image is pushed only
   # as git-<sha>; `promote` moves the other tags once the VM tests pass.
   image:
     runs-on: ubuntu-24.04
@@ -57,7 +57,7 @@ jobs:
 
       # Frees disk, puts rootful podman storage on a btrfs loopback and
       # installs a current podman and just (the image is several GB).
-      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # v1
+      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246
         with:
           storage-backend: btrfs
           native-overlay: "true"
@@ -66,6 +66,9 @@ jobs:
 
       - name: Build
         run: sudo -E "$(command -v just)" build "${DEFAULT_TAG}"
+
+      - name: Test the built desktop image
+        run: sudo -E "$(command -v just)" image-test "${DEFAULT_TAG}"
 
       # The VM jobs test this archive, not a rebuild; they check that the
       # image they load has this image ID (the digest of its config).
@@ -235,7 +238,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # v1
+      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246
         with:
           storage-backend: btrfs
           native-overlay: "true"
