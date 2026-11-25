@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone target="ACCEPT">
+  <short>Job VM bridge</short>
+  <description>The bridge created by runner-network.service. Its own nftables table filters this traffic; see docs/runner-network.md.</description>
+  <interface name="runnerbr0"/>
+</zone>

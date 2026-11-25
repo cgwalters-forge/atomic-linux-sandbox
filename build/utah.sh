@@ -7,10 +7,12 @@
 set -euo pipefail
 
 # The parts of custom/system this variant takes. Cockpit, restic,
-# runner.slice, registries.conf, the presets and the update drop-in stay with
-# the default image.
+# runner.slice, runner-network, registries.conf, the presets and the update
+# drop-in stay with the default image. Only import firewall files Utah uses.
 readonly SYSTEM_PATHS=(
-	etc/firewalld
+	etc/firewalld/services/tailscale.xml
+	etc/firewalld/zones/FedoraWorkstation.xml
+	etc/firewalld/zones/k3s.xml
 	etc/rancher
 	etc/ssh/sshd_config.d
 	usr/lib/bootc/install

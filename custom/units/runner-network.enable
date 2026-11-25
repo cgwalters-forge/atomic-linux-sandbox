@@ -1,0 +1,2 @@
+# Does nothing until /etc/atomic-linux/runner-network.conf exists.
+runner-network.service

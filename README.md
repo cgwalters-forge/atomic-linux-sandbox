@@ -77,6 +77,9 @@ The shared base, in both variants:
 - `runner.slice`, a memory- and CPU-capped slice for CI runners and job
   VMs, unused until a unit opts in; see
   [Runner slice](#runner-slice).
+- An isolated bridge for CI job VMs with an nftables egress allowlist,
+  inert until `/etc/atomic-linux/runner-network.conf` exists; see
+  [docs/runner-network.md](docs/runner-network.md).
 
 The variants, chosen at build time with `VARIANT` (`build/40-variant.sh`):
 
@@ -172,6 +175,7 @@ trust bootstrap are validated. Configuration hooks:
 | `/etc/rancher/k3s/config.yaml.d/*.yaml` | k3s settings; use `kubelet-arg+:` to add kubelet reservations without replacing the base list |
 | `/etc/default/k3s-preflight` | `K3S_PREFLIGHT_REQUIRE_KVM=1` on KubeVirt hosts |
 | `/etc/systemd/system/runner.slice.d/*.conf` | Runner memory and CPU limits; see [Runner slice](#runner-slice) |
+| `/etc/atomic-linux/runner-network.conf` | Job VM bridge address, resolvers and egress allowlist ([docs](docs/runner-network.md)) |
 | `/etc/modules-load.d/`, `/etc/modprobe.d/` | Hardware modules and options, e.g. `kvm_intel nested=1` |
 | `/etc/ssh/sshd_config.d/` | sshd settings; a file sorting before `40-atomic-linux.conf` overrides the key-only defaults |
 
