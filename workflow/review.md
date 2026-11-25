@@ -39,9 +39,18 @@ regressions and missing coverage; cite files and lines for actionable findings.
 State the exact admitted head SHA in the findings so a stale review cannot be
 mistaken for a review of a newer push.
 
-Return exactly one safe output: add_comment on the triggering pull request,
-or noop if no useful review can be made. Set only type and body on add_comment;
-do not set item_number or other routing fields: the workflow fixes the target.
+Return one add_comment on the triggering pull request, or a noop by itself if
+no useful review can be made. Set only type and body on add_comment; do not
+set item_number or other routing fields: the workflow fixes the target.
+If the safe outputs offer create_pull_request_review_comment, you may also
+return up to ten of them alongside add_comment, one per finding anchored in
+the diff. Set path, line (and start_line for a range), side LEFT only for a
+removed line, and body with the finding and its severity. Do not set
+pull_request_number or repo. These findings go into the same review as the
+verdict, or into its comment, so keep each finding's detail in one place.
+The verdict comment must still list every blocker on its own line, with its
+file and line and one sentence stating the problem, even when the detail is
+inline: the automated fixer reads only the verdict.
 Report every finding you can see in this one pass, not only the first.
 Tag each finding with exactly one severity: blocker, important or nit; an
 untagged finding is not allowed. A blocker makes the change wrong for its
@@ -53,9 +62,9 @@ least one blocker, and VERDICT: APPROVE otherwise, and may go on with a short
 reason. Keep that line to the one verdict: a first line that also names the
 other verdict (or REJECT next to APPROVE) is refused and the comment is lost.
 Then come the findings, most important first. In an approving review, list
-important findings and nits under a "Follow-ups" heading, each with its file
-and line, for later pull requests. When there is a blocker, the fix may take
-important findings and nits along.
+important findings and nits that are not inline under a "Follow-ups" heading,
+each with its file and line, for later pull requests. When there is a blocker,
+the fix may take important findings and nits along.
 Do not include a `Verification:` paragraph.
 Skip praise and style nits a linter would catch.
 This verdict is only text, never a GitHub approval or merge authorization; an

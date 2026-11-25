@@ -57,7 +57,7 @@ jobs:
 
       # Frees disk, puts rootful podman storage on a btrfs loopback and
       # installs a current podman and just (the image is several GB).
-      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # v1
+      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # untagged commit
         with:
           storage-backend: btrfs
           native-overlay: "true"
@@ -235,7 +235,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # v1
+      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # untagged commit
         with:
           storage-backend: btrfs
           native-overlay: "true"
