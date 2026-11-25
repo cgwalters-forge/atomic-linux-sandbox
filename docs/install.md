@@ -201,52 +201,93 @@ arguments as the starting point for upgrades.
 ### Separate data volume
 
 Put the encrypted volume for `/var/home` and VM and runner storage on a
-second disk if you need to reinstall the root without touching that data.
-`to-disk` repartitions the entire target disk, including any data partition
-on it. Do not use `to-existing-root` from the installed composefs host:
-its running root is read-only EROFS. This guide does not cover a
-data-preserving reinstall with both volumes on the same disk.
+second disk if you plan to reinstall the root. **`bootc install to-disk`
+destroys all existing partitions on its target disk**, including a data
+partition on that disk. Do not use `to-existing-root` from the installed
+composefs host: its running root is read-only EROFS. This guide does not
+cover a data-preserving reinstall with both volumes on the same disk.
 
 Create the volume after the first boot and before creating users, since
-mounting it hides whatever `/var/home` already holds. `DATA` is the second
-disk or a new partition in the free space
-(`echo 'name=data' | sfdisk --append --no-reread /dev/sdX`). The
-passphrase you set is the volume's recovery key:
+mounting it hides whatever `/var/home` already holds. For a same-disk
+volume, install with `--root-size` as above to leave free space. Run these
+commands as root. Set `disk` to the whole install disk after confirming its
+identity (for example, model and serial) and existing partitions with
+`lsblk -o NAME,PATH,MODEL,SERIAL,SIZE,TYPE,MOUNTPOINTS`. Run
+`sfdisk --list-free "$disk"` and confirm the expected free space before
+appending a partition:
 
 ```sh
-cryptsetup luksFormat --type luks2 DATA
-systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 DATA
-uuid=$(cryptsetup luksUUID DATA)
-cryptsetup open DATA data
-mkfs.btrfs -L data /dev/mapper/data
-mount /dev/mapper/data /mnt
-btrfs subvolume create /mnt/home /mnt/libvirt
-umount /mnt
+printf 'name=data\n' | sfdisk --append --no-reread --no-tell-kernel "$disk"
+partx --show --bytes --output NR,START,SIZE,NAME "$disk"
+```
+
+Set `partno` to the number of the new `data` partition shown in the
+expected free space. Add just that partition to the kernel's view rather
+than rereading the whole table while the root partition is in use:
+
+```sh
+partx --add --nr "$partno" "$disk"
+udevadm settle
+lsblk --bytes -o NAME,PATH,TYPE,START,SIZE,PARTLABEL,MOUNTPOINTS "$disk"
+```
+
+Before formatting, confirm that `lsblk` shows the new, unmounted `data`
+partition under the intended disk, with the start and size shown by
+`partx` (both `START` columns use 512-byte sectors, while `sfdisk` uses
+the disk's logical sector size). Set `DATA` to that partition's `PATH`, not
+the whole install disk. For a separate disk, use `lsblk` to verify its
+identity and set `DATA` to the unused, unmounted disk or partition you
+intend to erase. In either case, check that `DATA` has no child devices
+and that `wipefs --no-act "$DATA"` reports no existing signatures. If a
+command fails or the device is missing or does not match, stop before
+formatting.
+
+Keep the recovery passphrase you set here:
+
+```sh
+cryptsetup luksFormat --type luks2 "$DATA" &&
+uuid=$(cryptsetup luksUUID "$DATA") &&
+cryptsetup open "$DATA" data &&
+mkfs.btrfs -L data /dev/mapper/data &&
+mount /dev/mapper/data /mnt &&
+btrfs subvolume create /mnt/home /mnt/libvirt &&
+umount /mnt &&
 cryptsetup close data
 ```
 
-As above, edit the `options` line of the booted entry. Append these three
-arguments to that line, replacing `<uuid>` with the value of `$uuid`, then
-reboot:
+For optional TPM unlock, run `systemd-cryptenroll --tpm2-device=auto
+--tpm2-pcrs=7 "$DATA"`. Keep the passphrase even if enrollment succeeds.
+
+Before rebooting, edit the `options` line of the booted entry as above.
+Append these arguments, replacing `<uuid>` with the value of `$uuid`:
 
 ```text
 luks.name=<uuid>=data
+luks.options=<uuid>=headless=false
 systemd.mount-extra=/dev/mapper/data:/var/home:btrfs:subvol=home
 systemd.mount-extra=/dev/mapper/data:/var/lib/libvirt:btrfs:subvol=libvirt
 ```
 
-bootc's `luks.options=` carries no UUID, so it also applies to the data
-volume: it unlocks with the TPM and falls back to a passphrase prompt only
-if you dropped `headless=true` as above. After the reboot, run
-`restorecon -R /var/home /var/lib/libvirt` once so the new subvolumes get
-their SELinux labels. Add a subvolume and a `systemd.mount-extra=` argument
-for each further path, such as a CI runner's work directory. When you
-reinstall the root, pass the same arguments as `--karg` options to
-`bootc install` and the volume is mounted again on the first boot. The new
-root is back to bootc's TPM key and `headless=true`, so repeat the steps
-under "Encrypted root with TPM2 unlock" before the next Secure Boot
-database update, and recreate users with their old UID and GID, as in
-"After the first boot" above, so the files' ownership still matches.
+The UUID-specific `luks.options=` lets systemd prompt for the data volume's
+passphrase even if the root's unqualified options set `headless=true`.
+If you enrolled a TPM key for the data volume, use
+`luks.options=<uuid>=headless=false,tpm2-device=auto` instead. Neither
+automatic TPM unlock nor passphrase prompting has been tested with this
+layout. Check that both subvolumes are mounted after reboot
+before running `restorecon -R /var/home /var/lib/libvirt` to set their
+SELinux labels. Add a subvolume and a `systemd.mount-extra=` argument for
+each further path, such as a CI runner's work directory. Keep a copy of the
+arguments and check them after a composefs upgrade; persistence of these
+hand-edited boot entries has not been verified.
+
+Reattaching an existing data volume after a root reinstall has not been
+tested. Back up the data, target only the root disk in `to-disk`, and do
+not repeat the format steps on the data device. Supply the data-volume
+arguments again, including the UUID-specific `luks.options=` (`--karg` at
+install time or edit the new boot entry), and verify unlock and mounts
+before use. A new `tpm2-luks` root install sets
+`headless=true` again; review the recovery steps above. Recreate users
+with their old UID and GID so the files' ownership still matches.
 
 ### Rehearsing with bcvk
 
