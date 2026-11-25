@@ -54,10 +54,9 @@ The shared base, in both variants:
   metadata; it never applies firmware by itself.
 - bootc's [composefs backend](#composefs-only), built from scratch with no
   ostree repository.
-- `bootc-fetch-apply-updates.timer` enabled, but stage-only: updates are
-  meant to be fetched and staged in the background and never trigger a
-  reboot. On composefs the timer does not run yet; see
-  [docs/updates.md](docs/updates.md).
+- `bootc-fetch-apply-updates.timer` enabled on composefs boots: it fetches
+  and stages updates in the background without rebooting. The staged image
+  takes effect on the next clean reboot; see [docs/updates.md](docs/updates.md).
 - `bootc install` defaults to a btrfs root and allows a LUKS2 root unlocked
   by the TPM (`--block-setup tpm2-luks`, see [docs/install.md](docs/install.md)).
 - Container short names are enforcing, with no search registries.
@@ -212,19 +211,22 @@ main branch from the `rhcontainerbot/bootc` COPR:
 just build                                 # bootc from the fork's release
 BOOTC_SOURCE=fedora just build             # bootc from Fedora
 BOOTC_SOURCE=copr just build               # bootc from upstream main
-just composefs-vm-test stable              # install, upgrade, switch, rollback
+just composefs-vm-test stable              # install, stage, switch, roll back
 ```
 
 `composefs-vm-test` installs the build in a disposable libvirt VM on a btrfs
-root and checks that the composefs backend is booted, that an `/etc` and a
-`/var` edit survive `bootc upgrade`, and that `bootc switch` and
-`bootc rollback` boot the expected images, with SELinux enforcing and the k3s
-preflight unit working. It and `to-existing-root-vm-test` also print what
-started the installed system (`bootctl status`, the LoaderInfo EFI variable,
-`bootc status`), the Secure Boot state, the ESP's size and free space and the
-size of the shipped kernel and initramfs. They require `bootc status` to
-report `EXPECT_BOOTLOADER` (default `grub`) and the ESP to fit three
-deployments' kernels, which a systemd-boot default would need.
+root and checks that the update timer is active on a composefs boot. It
+starts the update service directly and verifies that it stages the expected
+image without rebooting, then reboots and checks that the image takes effect
+and edits to `/etc` and `/var` survive. It also checks `bootc switch`,
+`bootc rollback`, SELinux enforcement and the k3s preflight unit.
+
+Both it and `to-existing-root-vm-test` print what started the installed
+system (`bootctl status`, the LoaderInfo EFI variable, `bootc status`), the
+Secure Boot state, the ESP's size and free space and the size of the shipped
+kernel and initramfs. They require `bootc status` to report
+`EXPECT_BOOTLOADER` (default `grub`) and the ESP to fit three deployments'
+kernels, which a systemd-boot default would need.
 
 **Moving from ostree.** An existing ostree host, including one installed
 from an earlier ostree build of this image, must not `bootc switch` or
@@ -252,10 +254,9 @@ and the separate trust policy a derived image needs.
 
 Known gaps, as of bootc 1.17.1 (October 2026):
 
-- rpm-ostree, and so GNOME Software's OS updates, do not work; use
-  `bootc upgrade` (`ujust update-and-reboot`). `bootc-fetch-apply-updates.timer` is
-  conditioned on `/run/ostree-booted` and never runs
-  ([bootc#2578](https://github.com/bootc-dev/bootc/issues/2578)).
+- rpm-ostree, and so GNOME Software's OS updates, do not work. To stage an
+  update without waiting for the timer, run `sudo bootc upgrade`, or use
+  `ujust update-and-reboot` to stage and get a reboot prompt.
 - With no separate `/boot` partition, systemd's GPT auto-generator mounts the
   ESP on `/boot` while the BLS entries and GRUB configuration live in
   `/sysroot/boot`, so `bootloader-update.service` (bootupd) fails on every
@@ -368,8 +369,9 @@ does not use the default image's update timer or drop-in.
 
 Unlike the default image's base and context images, Utah is pinned by its
 dated `testing-YYYYMMDD-<sha7>` tag, not a digest. The default image does not
-change. The VM recipes take the tag, e.g. `just composefs-vm-test utah`,
-`just k3s-vm-create utah`; enable sshd in a disposable derivative for these
+change. Run `COMPOSEFS_TEST_UPDATE_SERVICE=0 just composefs-vm-test utah`
+to test the lifecycle with a manual upgrade, or `just k3s-vm-create utah`
+to create the k3s test VM. Enable sshd in a disposable derivative for these
 SSH-based tests, as the Utah VM jobs do.
 
 Status: it builds and passes `bootc container lint` (November 2026). CI's

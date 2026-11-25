@@ -57,7 +57,8 @@ jobs:
 
       # Frees disk, puts rootful podman storage on a btrfs loopback and
       # installs a current podman and just (the image is several GB).
-      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # v1
+      # Pin the tested commit; the upstream major tag moves.
+      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246
         with:
           storage-backend: btrfs
           native-overlay: "true"
@@ -235,7 +236,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246 # v1
+      # Use the same commit as the default image job.
+      - uses: projectbluefin/actions/bootc-build/setup-runner@9eccc77361d4e1bdc8c412dd3b6573d8680d2246
         with:
           storage-backend: btrfs
           native-overlay: "true"
@@ -353,7 +355,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo prlimit --pid "$$" --nofile=524288:524288
-          just composefs-vm-test "${UTAH_TAG}"
+          COMPOSEFS_TEST_UPDATE_SERVICE=0 just composefs-vm-test "${UTAH_TAG}"
 
       - name: Move a LUKS2+btrfs ostree host with to-existing-root
         if: matrix.suite == 'to-existing-root'
