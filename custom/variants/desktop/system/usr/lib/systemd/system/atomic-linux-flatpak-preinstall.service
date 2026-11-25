@@ -1,0 +1,25 @@
+[Unit]
+Description=Install the preinstalled Flatpak apps
+Documentation=man:flatpak-preinstall(1)
+# Runs each boot: the first boot installs the set, later boots pick up
+# entries an image update added; flatpak remembers apps a user removed.
+ConditionPathExists=/usr/bin/flatpak
+Wants=network-online.target
+After=network-online.target
+# Without network (or with Flathub down), give up after three attempts and
+# try again next boot.
+StartLimitIntervalSec=1h
+StartLimitBurst=3
+
+[Service]
+# Type=exec, not oneshot, so that neither boot nor `systemctl
+# is-system-running --wait` waits for the downloads.
+Type=exec
+ExecStart=/usr/bin/flatpak preinstall --system --assumeyes --noninteractive
+Restart=on-failure
+RestartSec=2min
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

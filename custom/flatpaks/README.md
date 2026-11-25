@@ -16,32 +16,31 @@ Its shipped `flatpak-preinstall(1)` documents INI groups named
 `CollectionID` keys, under `/usr/share/flatpak/preinstall.d/` and
 `/etc/flatpak/preinstall.d/`. `Install` defaults to true, `IsRuntime` to
 false; the branch defaults to master, so these defaults explicitly request
-stable. Both entries bind to `org.flathub.Stable`, also set on the remote.
+stable. Every entry binds to `org.flathub.Stable`, also set on the remote.
 The official remote's public key is retained; neither commit nor summary
 signature verification is disabled.
 
 That RPM ships the CLI and system helper, but no preinstall startup unit.
 Its `flatpak-add-fedora-repos.service` only runs two Fedora `remote-add`
 commands and writes `.fedora-initialized`; it does not invoke preinstall,
-and this image masks and removes it. The manual's statement that the OS runs
-preinstall is not evidence of a first-login trigger here. Reuse the packaged
-CLI explicitly on the booted desktop:
-
-```sh
-sudo flatpak preinstall --system --noninteractive
-```
-
-No new service, timer or login hook is added. Downloads start at invocation,
-not image build or a promised login time. Apps, runtimes and extensions can
-take considerable bandwidth, disk space and time. Offline discovery of the
-remote works with its shipped key, but a fresh offline machine has no app
-cache and cannot install the defaults. Retry online; no background retry is
-scheduled by this change.
+and this image masks and removes it. The manual says the OS runs
+`flatpak preinstall -y` on startup, so the desktop ships and enables its own
+`atomic-linux-flatpak-preinstall.service`, as Bluefin's common layer does
+with `flatpak-preinstall.service`. It runs the packaged CLI as a `Type=exec`
+service after `network-online.target`, so boot does not wait for downloads,
+and gives up for that boot after three failed attempts. Downloads start at boot,
+never at image build. Apps, runtimes and extensions take about 1.5 GB of
+bandwidth and disk. Offline discovery of the remote works with its shipped
+key, but a fresh offline machine cannot install the defaults until a later
+boot is online, or until an administrator runs
+`sudo flatpak preinstall --system --noninteractive`.
 
 ## Downstream overrides
 
 Derived desktop images can replace
-`/usr/share/flatpak/preinstall.d/default.preinstall` or add their own files.
+`/usr/share/flatpak/preinstall.d/default.preinstall` or add their own files,
+or `systemctl disable atomic-linux-flatpak-preinstall.service` to leave
+installation to the administrator.
 Administrators can override individual groups in
 `/etc/flatpak/preinstall.d/local.preinstall`, for example:
 
@@ -66,14 +65,13 @@ do not erase existing installations or user remotes on upgraded hosts.
 requires no preexisting system repository, calls `flatpak remotes --system`
 to test discovery, checks the effective URL, collection ID, imported key and
 commit/summary verification settings, excludes Fedora remotes, validates the
-active entries and exercises the packaged preinstall parser without pulling.
-It checks that the server has neither Flathub nor active preinstall entries.
-It is not an app-installation test.
+active entries, exercises the packaged preinstall parser without pulling,
+checking that it finds every listed app, and checks the service is enabled.
+It checks that the server has neither Flathub, active preinstall entries nor
+the service. It is not an app-installation test.
 
-In a disposable networked desktop VM, run the command above, then check
-`flatpak list --system --app --columns=application,branch,origin` for both
-stable apps from flathub. Invoke preinstall again and check the list is
-unchanged. This run could not build the pinned Fedora bootc base (registry
-returned `manifest unknown`); image discovery, app installation and repeat
-invocation in the actual desktop VM therefore remain unverified. Inspection
-of the release RPM is not verification of the final image's package version.
+In a disposable networked desktop VM, wait for the service to finish
+(`journalctl -u atomic-linux-flatpak-preinstall -f`), then check
+`flatpak list --system --app --columns=application,branch,origin` lists the
+stable apps from flathub. Inspection of the release RPM is not verification
+of the final image's package version.
