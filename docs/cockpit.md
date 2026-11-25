@@ -3,7 +3,7 @@
 > This text is LLM generated.
 
 Both variants carry `cockpit-ws`, `cockpit-system`, `cockpit-podman`,
-`cockpit-storaged`, `cockpit-networkmanager` and `cockpit-machines`.
+`cockpit-storaged` and `cockpit-networkmanager`.
 They provide a privileged host administration console, not a preconfigured
 remote-access service. `cockpit.socket` is disabled, not masked. The early
 vendor preset `00-atomic-linux-cockpit.preset` also disables it on first-boot
@@ -12,12 +12,12 @@ has configured authentication and network access. There is no generic-image
 tailnet zone, interface binding, enrollment or Cockpit firewall opening.
 The default zone still permits only SSH and Tailscale's UDP transport.
 
-These are not just static web pages: hard dependencies include cockpit-bridge,
-udisks2, libvirt daemons, QEMU/KVM and virt-install, even with weak dependencies
-disabled. Their normal Fedora activation/preset behavior still applies (for
-example libvirt sockets and virtqemud); disabling Cockpit is not a switch to
-disable those host capabilities. No additional dependency-service policy is
-imposed here. Exact incremental size depends on the base and variant.
+These are not just static web pages: hard dependencies include cockpit-bridge
+and udisks2, even with weak dependencies disabled. The Cockpit VM page
+(`cockpit-machines`) is not installed: it requires additional libvirt drivers
+and the default NAT network. A derived image that wants the page can add
+`cockpit-machines` to its package drop-ins. Review the resulting libvirt
+services and networks separately; disabling Cockpit does not disable them.
 
 ## Plan access in the derived image
 

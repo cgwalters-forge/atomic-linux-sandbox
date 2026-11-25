@@ -20,9 +20,9 @@ for binary in node nodejs; do
 	fi
 done
 
-# All Cockpit components must be present in both variants, but no listener
+# The base Cockpit components must be present in both variants, but no listener
 # should be enabled. This runs in a disposable image-test container, not a host.
-rpm -q cockpit-ws cockpit-system cockpit-podman cockpit-storaged cockpit-networkmanager cockpit-machines
+rpm -q cockpit-ws cockpit-system cockpit-podman cockpit-storaged cockpit-networkmanager
 assert_cockpit_disabled() {
 	local state
 	state=$(systemctl is-enabled cockpit.socket || true)

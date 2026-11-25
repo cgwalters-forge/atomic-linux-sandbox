@@ -4,4 +4,4 @@ cockpit-system
 cockpit-podman
 cockpit-storaged
 cockpit-networkmanager
-cockpit-machines
+# cockpit-machines pulls in additional libvirt drivers; leave it to derived images.

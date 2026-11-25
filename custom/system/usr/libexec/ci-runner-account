@@ -1,0 +1,22 @@
+#!/usr/bin/bash
+set -euo pipefail
+
+user=ci-runner
+if ! getent passwd "${user}" >/dev/null; then
+	# Allocate subids under shadow's locks and within its login.defs policy.
+	useradd --system --add-subids-for-system --user-group --no-create-home \
+		--home-dir /var/lib/ci-runner --shell /usr/sbin/nologin "${user}"
+fi
+
+# Never change an existing account's mappings: its rootless storage may
+# already depend on them. Podman needs a full range for its default mapping.
+for kind in UID GID; do
+	args=()
+	if [[ "${kind}" == GID ]]; then
+		args=(-g)
+	fi
+	if ! getsubids "${args[@]}" "${user}" | awk '$4 >= 65536 { found = 1 } END { exit !found }'; then
+		echo "${user} needs a subordinate ${kind} range of at least 65536 IDs" >&2
+		exit 1
+	fi
+done

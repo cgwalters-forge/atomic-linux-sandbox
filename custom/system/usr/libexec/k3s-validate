@@ -131,8 +131,11 @@ cleanup_probes() {
 trap cleanup_probes EXIT
 cleanup_probes
 
+# CoreDNS reporting available after a restart does not guarantee that the
+# service IP is accepting requests from a newly started pod yet.
 k3s kubectl run "${network_pod}" --restart=Never --image=docker.io/library/busybox@sha256:9db7b59979c38555a39def84a31fb98b5296952f9e3afd4f6f11f05b07adfab0 -- \
-    sh -ceu 'nslookup kubernetes.default.svc.cluster.local && wget -q --spider https://example.com'
+    sh -ceu 'timeout 60 sh -c "until nslookup kubernetes.default.svc.cluster.local; do sleep 2; done"
+             wget -q --spider https://example.com'
 for attempt in $(seq 1 90); do
     phase=$(k3s kubectl get "pod/${network_pod}" -o jsonpath='{.status.phase}')
     if test "${phase}" = Succeeded; then

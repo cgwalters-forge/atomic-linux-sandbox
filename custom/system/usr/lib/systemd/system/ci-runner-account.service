@@ -1,0 +1,9 @@
+[Unit]
+Description=Provision the CI runner account
+ConditionFileIsExecutable=/usr/libexec/ci-runner/ci-runner
+After=systemd-sysusers.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /usr/libexec/ci-runner-account
+RemainAfterExit=yes

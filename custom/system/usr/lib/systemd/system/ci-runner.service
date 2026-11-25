@@ -1,0 +1,26 @@
+# Hook for an externally built CI runner daemon that runs each job in a fresh
+# VM. This image ships no daemon and leaves the unit disabled: a derived image
+# installs the binary as /usr/libexec/ci-runner/ci-runner and enables the unit.
+[Unit]
+Description=CI runner (per-job VMs)
+ConditionFileIsExecutable=/usr/libexec/ci-runner/ci-runner
+Wants=network-online.target
+Requires=ci-runner-account.service
+After=network-online.target ci-runner-account.service virtqemud.socket virtnetworkd.socket
+
+[Service]
+Slice=runner.slice
+User=ci-runner
+Group=ci-runner
+# Daemon settings, e.g. its registration and the libvirt URI it uses.
+EnvironmentFile=-/etc/ci-runner/environment
+StateDirectory=ci-runner
+RuntimeDirectory=ci-runner
+# For rootless podman and qemu:///session, which have no user session here.
+Environment=HOME=/var/lib/ci-runner XDG_RUNTIME_DIR=/run/ci-runner
+Delegate=yes
+ExecStart=/usr/libexec/ci-runner/ci-runner
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
