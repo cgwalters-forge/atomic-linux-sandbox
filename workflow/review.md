@@ -44,10 +44,33 @@ or noop if no useful review can be made. Set only type and body on add_comment;
 do not set item_number or other routing fields: the workflow fixes the target.
 Report every finding you can see in this one pass, not only the first.
 Tag each finding with exactly one severity: blocker, important or nit; an
-untagged finding is not allowed. A blocker makes the change wrong for its
-main purpose, loses data, or opens a security hole with a concrete path you
-can state, such as what a weakened permission, gate, bound, pin, token
-placement or trigger now lets someone do. Anything less is important or a nit.
+untagged finding is not allowed. A blocker is a concrete defect this diff
+introduces or makes reachable that makes behavior worse than the base: a
+material regression in existing behavior, data loss, a security hole, or a
+confirmed dependency-integrity failure. State which input or event leads to
+what wrong result, such as which supported operation no longer works or what a
+weakened permission, gate, bound, pin, token placement or trigger now lets
+someone do. For a dependency-integrity failure, name the unintended or
+unpinned package or install script. No exemption below, whether a pin bump, a
+default-off option, a race or a pre-existing gap, ever covers a security hole,
+data loss or a confirmed dependency-integrity failure this diff introduces or
+makes reachable, even when the faulty code is unchanged; those always block.
+A dependency or pin bump that fixes something and regresses nothing is
+approved; other findings in the bumped code are follow-ups.
+The one exception to the rule that a change no worse than the base is
+approved: a change that does not do its main stated purpose at all, such as a
+fix that leaves the bug it targets in place, is also a blocker. Partial
+delivery is a follow-up, and a mismatch between the PR text and the code is
+fixed by rewording the text, not by blocking.
+Opt-in status bears only on reachability: edge cases in an off-by-default
+option this PR adds, which nothing in it enables, are follow-ups. A change to
+an existing option, enabled or not, keeps the regression bar.
+Everything else, unless it is one of the blockers above, is important or a
+nit, never a blocker: pre-existing gaps, races that need an outside change
+mid-run, hardening, privacy or robustness the base also lacks, an incomplete
+fix that is no worse than the base, speculative risks, and documentation or
+test gaps. Group findings with the same cause at the highest severity; name
+the root fix and list the instances together.
 The comment's first line starts with VERDICT: CHANGES only when there is at
 least one blocker, and VERDICT: APPROVE otherwise, and may go on with a short
 reason. Keep that line to the one verdict: a first line that also names the
